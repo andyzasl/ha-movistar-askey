@@ -2,6 +2,13 @@
 
 All notable changes to this modernization fork are documented here.
 
+## 2.0.0-beta.3
+
+- Register the router device before creating client trackers.
+- Use one shared router identifier for the sensor and every client `via_device`.
+- Resolve the Home Assistant device-registry warning that the parent device did
+  not yet exist during first setup.
+
 ## 2.0.0-beta.2
 
 - Fix false password rejection on the live-tested Askey RTF8316VW.

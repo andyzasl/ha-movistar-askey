@@ -6,6 +6,7 @@ import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 
 from .const import (
     CONF_CONSIDER_HOME,
@@ -14,6 +15,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
 )
 from .coordinator import MovistarAskeyCoordinator
+from .device import router_device_info
 from .router import MovistarAskeyClient
 
 PLATFORMS: tuple[Platform, ...] = (Platform.DEVICE_TRACKER, Platform.SENSOR)
@@ -49,6 +51,13 @@ async def async_setup_entry(
 
     entry.runtime_data = coordinator
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
+
+    # Register the parent before platform forwarding. Device trackers are added
+    # immediately and Home Assistant requires their via_device to already exist.
+    dr.async_get(hass).async_get_or_create(
+        config_entry_id=entry.entry_id,
+        **router_device_info(entry),
+    )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 

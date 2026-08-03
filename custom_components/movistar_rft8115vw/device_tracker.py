@@ -10,8 +10,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
 from .coordinator import MovistarAskeyCoordinator
+from .device import router_identifier
 
 
 async def async_setup_entry(
@@ -94,12 +94,8 @@ class MovistarAskeyDeviceTracker(
     @property
     def device_info(self) -> DeviceInfo:
         """Link this client device to the router device."""
-        parent_id = (
-            self.coordinator.config_entry.unique_id
-            or self.coordinator.config_entry.entry_id
-        )
         return DeviceInfo(
             connections={(CONNECTION_NETWORK_MAC, self._mac)},
             name=self._cached_device.name,
-            via_device=(DOMAIN, parent_id),
+            via_device=router_identifier(self.coordinator.config_entry),
         )

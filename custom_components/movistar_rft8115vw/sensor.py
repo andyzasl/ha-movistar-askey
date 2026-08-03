@@ -9,8 +9,8 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, ROUTER_MANUFACTURER, ROUTER_MODEL, ROUTER_NAME
 from .coordinator import MovistarAskeyCoordinator
+from .device import router_device_info
 
 
 async def async_setup_entry(
@@ -59,14 +59,4 @@ class ConnectedDevicesSensor(
     @property
     def device_info(self) -> DeviceInfo:
         """Return metadata for the parent router device."""
-        router_id = (
-            self.coordinator.config_entry.unique_id
-            or self.coordinator.config_entry.entry_id
-        )
-        return DeviceInfo(
-            identifiers={(DOMAIN, router_id)},
-            name=ROUTER_NAME,
-            manufacturer=ROUTER_MANUFACTURER,
-            model=ROUTER_MODEL,
-            configuration_url=f"http://{self.coordinator.config_entry.data['host']}",
-        )
+        return router_device_info(self.coordinator.config_entry)

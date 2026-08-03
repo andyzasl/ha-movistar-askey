@@ -152,7 +152,11 @@ polling interval.
 - If a setup attempt was interrupted, close the dialog, wait briefly, refresh
   **Devices & services**, and try again.
 
-Version `2.0.0-beta.2` fixes a false authentication failure on the RTF8316VW:
+Version `2.0.0-beta.3` includes the RTF8316VW authentication fix and registers
+the parent router before client trackers, satisfying Home Assistant's strict
+device-registry ordering requirements.
+
+Version `2.0.0-beta.2` fixed a false authentication failure on the RTF8316VW:
 its authenticated network-map page still references the login endpoint.
 
 ### The integration is unavailable after restart
