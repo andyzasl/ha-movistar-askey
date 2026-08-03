@@ -4,6 +4,7 @@ import pytest
 
 from custom_components.movistar_rft8115vw.router import (
     RouterParseError,
+    _authentication_failed,
     encode_router_value,
     parse_device_data,
 )
@@ -40,3 +41,20 @@ def test_parse_rejects_page_without_device_data() -> None:
     """A login or incompatible page is not treated as an empty network."""
     with pytest.raises(RouterParseError, match="did not contain deviceData"):
         parse_device_data("<html>loginPassword</html>")
+
+
+def test_authenticated_map_can_reference_login_endpoint() -> None:
+    """The router map may mention its login endpoint after authentication."""
+    map_page = """
+    <script>
+    var logoutUrl = '/cgi-bin/te_acceso_router.cgi';
+    var deviceData=[['1','Laptop','','192.168.1.42','','','AA:BB:CC:DD:EE:01']];
+    </script>
+    """
+
+    assert not _authentication_failed(map_page, "")
+
+
+def test_login_page_without_device_data_is_auth_failure() -> None:
+    """A login response without a device map is rejected as invalid auth."""
+    assert _authentication_failed("<html>loginPassword</html>", "")

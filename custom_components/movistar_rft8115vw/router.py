@@ -131,9 +131,7 @@ class MovistarAskeyClient:
                 "Could not retrieve the router network map"
             ) from err
 
-        if _looks_like_login_page(page) or (
-            _looks_like_login_page(login_page) and "deviceData" not in page
-        ):
+        if _authentication_failed(page, login_page):
             raise InvalidAuthError("The router rejected the supplied password")
         return parse_device_data(page)
 
@@ -175,3 +173,16 @@ class MovistarAskeyClient:
 def _looks_like_login_page(page: str) -> bool:
     lowered = page.lower()
     return any(marker.lower() in lowered for marker in _LOGIN_MARKERS)
+
+
+def _authentication_failed(map_page: str, login_page: str) -> bool:
+    """
+    Return whether the router redirected an unauthenticated client to login.
+
+    Authenticated map pages on the RTF8316VW still contain references to the
+    login endpoint, so login markers are only meaningful when deviceData is
+    absent from the map response.
+    """
+    return "deviceData" not in map_page and (
+        _looks_like_login_page(map_page) or _looks_like_login_page(login_page)
+    )
