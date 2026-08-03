@@ -1,0 +1,41 @@
+{
+  "title": "Movistar Askey Router",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to the Movistar Askey router",
+        "description": "Enter the address and web-admin password for your router.",
+        "data": {
+          "host": "Router IP address",
+          "password": "Router admin password"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect to the router",
+        "description": "Enter the current router admin password.",
+        "data": {
+          "password": "Router admin password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not connect to the router",
+      "invalid_auth": "The router rejected the password",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This router is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Router monitoring options",
+        "data": {
+          "scan_interval": "Polling interval in seconds",
+          "consider_home": "Presence grace period in seconds"
+        }
+      }
+    }
+  }
+}

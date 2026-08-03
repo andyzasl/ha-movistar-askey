@@ -1,96 +1,75 @@
-[validate_badge]: https://img.shields.io/github/actions/workflow/status/luis-garza/movistar_rft8115vw/validate.yaml?logo=github
-[validate_url]: https://github.com/luis-garza/movistar_rft8115vw/actions/workflows/validate.yaml
+# Movistar Askey Router for Home Assistant
 
-[release_badge]: https://img.shields.io/github/release/luis-garza/movistar_rft8115vw.svg?logo=github&color=lightgrey
-[release_url]: https://github.com/luis-garza/movistar_rft8115vw/releases/latest
+A modern, local-polling Home Assistant integration for compatible Movistar
+Askey routers. It currently supports the web interface used by the
+**RTF8115VW** and the **RTF8316VW** (Movistar WiFi 7 Router).
 
-[integration_badge]: https://img.shields.io/badge/dynamic/json?logo=home-assistant&logoColor=white&label=installations&labelColor=41bdf5&color=lightgrey&url=https://analytics.home-assistant.io/custom_integrations.json&query=movistar_rft8115vw.total
-[integration_url]: https://my.home-assistant.io/redirect/hacs_repository/?owner=luis-garza&repository=movistar_rft8115vw
+The project is a modernization fork of
+[`luis-garza/movistar_rft8115vw`](https://github.com/luis-garza/movistar_rft8115vw).
+It preserves the proven local-network-map parser while replacing Home
+Assistant's deprecated legacy device tracker with config entries and modern
+entities.
 
-[community_badge]: https://img.shields.io/static/v1.svg?logo=home-assistant&logoColor=white&labelColor=41bdf5&label=community&message=forum
-[community_url]: https://community.home-assistant.io/t/movistars-askey-rft8115vw/841398
+> [!IMPORTANT]
+> Version 2 is under active development. Keep the stable upstream integration
+> installed on production systems until a tested prerelease is published.
 
-[![GitHub Validate][validate_badge]][validate_url]
-[![GitHub Release][release_badge]][release_url]
-[![HA integration usage][integration_badge]][integration_url]
-[![Community Forum][community_badge]][community_url]
+## Planned version 2 features
 
-# movistar_rft8115vw
+- Setup and reauthentication through **Settings → Devices & services**
+- Local-only communication with the router
+- A router device and connected-device count sensor
+- One disabled-by-default device tracker per discovered client
+- Polling and presence-grace options
+- A documented migration path from the legacy YAML configuration
+- Privacy-preserving diagnostics
+- English and Spanish setup text
 
-Home Assistant [device tracker](https://www.home-assistant.io/integrations/device_tracker) integration for Movistar's Askey RFT8115VW router.
+## Installation for development
 
-[![Open HACS repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=luis-garza&repository=movistar_rft8115vw&category=integration)
+Add this repository to HACS as a custom integration only after a prerelease has
+been published. The integration retains the domain `movistar_rft8115vw` so
+existing entity history can be preserved where Home Assistant can match unique
+IDs.
 
-## Details
+To move from version 1 to version 2:
 
-This integration tracks devices connected to a Movistar's Askey RFT8115VW router.
+1. Record the current router address and admin password.
+2. Remove the old `device_tracker:` YAML block and check the configuration.
+3. Install version 2 and restart Home Assistant.
+4. Add **Movistar Askey Router** under **Settings → Devices & services**.
+5. Enable only the individual device trackers you actually use for presence.
 
-Any device connected is recorded in [known_devices.yaml](<https://www.home-assistant.io/integrations/device_tracker/#known_devicesyaml>) file and tracked properly. Once a device is tracked, it can be assigned to a [person](https://www.home-assistant.io/integrations/person) to enable its presence state.
+## Data and privacy
 
-In order to correctly identify the devices, the host name is used as device name if it's available, if it isn't then the MAC address is used instead.
+The integration communicates directly with the router over the local network.
+The admin password is stored in Home Assistant's config entry storage. Downloaded
+diagnostics exclude the password, client names, IP addresses, and MAC addresses.
 
-## Installation
+## Dashboard example
 
-The integration can be deployed using [HACS](<https://hacs.xyz>) or manually. It's highly recommended to use HACS for managing custom integrations, so please consider using it.
-
-### HACS
-
-Open [HACS](<https://hacs.xyz>) in Home Assistant and search for Movistar device tracker integration, or just click next button:
-
-[![Open HACS repository](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=luis-garza&repository=movistar_rft8115vw&category=integration)
-
-### Manual
-
-Download all content from `movistar_rft8115vw` folder, and place it in a new custom component folder as `config/custom_component/movistar_rft8115vw`.
-
-## Set up
-
-To set up the integration, place the following snippet in [configuration.yaml](<https://www.home-assistant.io/docs/configuration>) file.
-
-```yaml
-# Movistar Askey RFT8115VW
-device_tracker:
-  - platform: movistar_rft8115vw
-    host: <router address>
-    password: <router password>
-    interval_seconds: 60
-    consider_home: 360
-    new_device_defaults:
-      track_new_devices: false
-```
-
-Change the following parameters accordingly:
-
-- **host:** Router's hostname or IP address, usually 192.168.1.1 or 192.168.0.1.
-- **password:** Router's user login password.
-- **interval_seconds:** Seconds between each scan for new devices, default `12`.
-- **consider_home:** Seconds to consider a device as `not home` after not being seen, default `180`.
-- **track_new_devices:** Track by default every discovered device, either way
-will be recorded in [known_devices.yaml](<https://www.home-assistant.io/integrations/device_tracker/#known_devicesyaml>) file.
-
-For more information about the [device tracker](https://www.home-assistant.io/integrations/device_tracker) parameters check the official Home Assistant Documentation.
-
-Finally, restart Home Assistant to load and start the integration.
-
-## Troubleshooting
-
-To enable debug logs just place next snippet in [configuration.yaml](<https://www.home-assistant.io/docs/configuration>) file.
+The integration provides entities rather than installing a custom frontend.
+A simple starting card is:
 
 ```yaml
-logger:
-  default: warn
-  logs:
-    custom_components.movistar_rft8115vw: debug
+type: entities
+title: Casa Vidre network
+entities:
+  - entity: sensor.movistar_askey_router_connected_devices
+    name: Connected devices
 ```
 
-## References
+Entity IDs are assigned by Home Assistant and may differ.
 
-This integration is based on [askey_rft3505](https://github.com/jotacor/homeassistant-custom_components) integration from [Jotacor](https://github.com/jotacor).
+## Development
 
-## Support me
+```bash
+python -m pytest
+python -m ruff check .
+python -m ruff format . --check
+```
 
-Did you find this integration useful? Please let me know it.
+## License and attribution
 
-Still want to thank it? Just invite me a beer!
-
-<a href="https://www.buymeacoffee.com/lgarza"><img src="https://img.buymeacoffee.com/button-api/?text=Buy me a beer&emoji=🍺&slug=lgarza&button_colour=FFDD00&font_colour=000000&font_family=Poppins&outline_colour=000000&coffee_colour=ffffff"/>
+Licensed under GPL-3.0, following the upstream project. Original parser and
+integration concept copyright remain with their respective contributors.

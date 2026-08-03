@@ -1,0 +1,41 @@
+{
+  "title": "Router Movistar Askey",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Conectar con el router Movistar Askey",
+        "description": "Introduce la dirección y la contraseña de administración web del router.",
+        "data": {
+          "host": "Dirección IP del router",
+          "password": "Contraseña de administración"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Volver a conectar con el router",
+        "description": "Introduce la contraseña de administración actual.",
+        "data": {
+          "password": "Contraseña de administración"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No se pudo conectar con el router",
+      "invalid_auth": "El router rechazó la contraseña",
+      "unknown": "Error inesperado"
+    },
+    "abort": {
+      "already_configured": "Este router ya está configurado"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones de monitorización",
+        "data": {
+          "scan_interval": "Intervalo de consulta en segundos",
+          "consider_home": "Periodo de gracia de presencia en segundos"
+        }
+      }
+    }
+  }
+}

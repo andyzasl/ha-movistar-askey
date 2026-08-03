@@ -1,117 +1,105 @@
-"""Movistar's Askey RFT8115VW router integration."""
+"""Modern config-entry device trackers for Movistar Askey routers."""
 
-import ast
-import logging
-import re
+from __future__ import annotations
 
-import homeassistant.helpers.config_validation as cv
-import requests
-import voluptuous as vol
-from homeassistant.components.device_tracker import (
-    PLATFORM_SCHEMA,
-    DeviceScanner,
-)
-from homeassistant.const import CONF_HOST, CONF_PASSWORD
+from homeassistant.components.device_tracker import ScannerEntity, SourceType
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
-DOMAIN = "movistar_rft8115vw"
-
-_LOGGER = logging.getLogger(__name__)
-
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(
-    {vol.Required(CONF_HOST): cv.string, vol.Required(CONF_PASSWORD): cv.string}
-)
+from .const import DOMAIN
+from .coordinator import MovistarAskeyCoordinator
 
 
-def get_scanner(hass, config):
-    """Validate the configuration and return a scanner."""
-    scanner = MovistarDeviceScanner(config["device_tracker"])
-    return scanner if scanner.success_init else None
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Create trackers dynamically as clients are first observed."""
+    coordinator: MovistarAskeyCoordinator = entry.runtime_data
+    tracked: set[str] = set()
+
+    @callback
+    def add_new_devices() -> None:
+        new_macs = [mac for mac in coordinator.data if mac not in tracked]
+        if not new_macs:
+            return
+        tracked.update(new_macs)
+        async_add_entities(
+            MovistarAskeyDeviceTracker(coordinator, mac) for mac in new_macs
+        )
+
+    add_new_devices()
+    entry.async_on_unload(coordinator.async_add_listener(add_new_devices))
 
 
-class MovistarDeviceScanner(DeviceScanner):
-    """Looks for devices connected to a Movistar's Askey RFT8115VW router."""
+class MovistarAskeyDeviceTracker(
+    CoordinatorEntity[MovistarAskeyCoordinator],
+    ScannerEntity,
+):
+    """Represent a network client detected by the router."""
 
-    def __init__(self, config):
-        """Initialize the scanner."""
-        self.host = config[CONF_HOST]
-        self.password = config[CONF_PASSWORD]
-        self.parse_device_data = re.compile(r"var deviceData=([\w\W]+?);")
-        self.url_initial = f"http://{self.host}"
-        self.url_login = f"http://{self.host}/cgi-bin/te_acceso_router.cgi"
-        self.url_map = f"http://{self.host}/te_mapa_red_local.asp"
-        self.data_login = {
-            "loginUsername": self.encode("1234"),
-            "loginPassword": self.encode(self.password),
-        }
-        self.last_results = {}
-        self.success_init = self._update_info()
+    _attr_entity_registry_enabled_default = False
+    _attr_source_type = SourceType.ROUTER
 
-    def scan_devices(self):
-        """Scan for new devices and return a list with found device IDs."""
-        self._update_info()
-        return [item["mac"] for item in self.last_results]
+    def __init__(self, coordinator: MovistarAskeyCoordinator, mac: str) -> None:
+        """Initialize one disabled-by-default client tracker."""
+        super().__init__(coordinator)
+        self._mac = mac
+        self._attr_unique_id = mac
+        self._cached_device = coordinator.data[mac]
 
-    def get_device_name(self, device):
-        """Return the name of the given device or None if it's unknown."""
-        if not self.last_results:
-            return None
-        for item in self.last_results:
-            if item["mac"] == device and "name" in item:
-                return item["name"]
-        return None
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        if device := self.coordinator.data.get(self._mac):
+            self._cached_device = device
+        super()._handle_coordinator_update()
 
-    def _update_info(self):
-        """Ensure the information is up to date."""
-        _LOGGER.info("Checking devices")
-        devices = self.get_devices()
-        if not devices:
+    @property
+    def name(self) -> str:
+        """Return the latest hostname reported by the router."""
+        return self._cached_device.name
+
+    @property
+    def is_connected(self) -> bool:
+        """Return whether the client is present within the grace period."""
+        if self._mac in self.coordinator.data:
+            return True
+        last_seen = self.coordinator.last_seen.get(self._mac)
+        if last_seen is None or self.coordinator.consider_home == 0:
             return False
-        self.last_results = devices
-        return True
+        return (
+            dt_util.utcnow() - last_seen
+        ).total_seconds() < self.coordinator.consider_home
 
-    def encode(self, string):
-        """Encode router login data."""
-        return "".join(chr(ord(character) ^ 0x1F) for character in string)
+    @property
+    def mac_address(self) -> str:
+        """Return the stable network identifier used by the router."""
+        return self._mac
 
-    def get_devices(self):
-        """Retrieve devices from the router."""
-        _LOGGER.debug("Connecting to the router")
-        session = requests.Session()
-        response = session.get(self.url_initial)
-        headers = session.cookies.get_dict()
-        response = session.post(self.url_login, headers=headers, data=self.data_login)
-        if response.ok:
-            _LOGGER.debug("Connected to the router")
-            devices = []
-            _LOGGER.debug("Getting devices map from the router")
-            response = session.get(self.url_map, headers=headers)
-            if response.ok:
-                for line in response.text.splitlines():
-                    if self.parse_device_data.search(line):
-                        _LOGGER.debug("Devices found in the map")
-                        line_replaced = line.replace("\\", "")
-                        devices_data = ast.literal_eval(
-                            self.parse_device_data.search(line_replaced).group(1)
-                        )
-                        for device in devices_data:
-                            if device[0] == "1":
-                                devices.extend(
-                                    [
-                                        {
-                                            "mac": device[6],
-                                            "ip": device[3],
-                                            "name": device[1],
-                                        }
-                                    ]
-                                )
-                        break
-                if len(devices) == 0:
-                    _LOGGER.warning("No devices found in the map")
-            else:
-                _LOGGER.error("Error getting devices map from the router")
-                devices = None
-        else:
-            _LOGGER.error("Error connecting to the router")
-            devices = None
-        session.close()
-        return devices
+    @property
+    def hostname(self) -> str:
+        """Return the latest reported hostname."""
+        return self._cached_device.name
+
+    @property
+    def ip_address(self) -> str:
+        """Return the latest reported IPv4 address."""
+        return self._cached_device.ip
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Link this client device to the router device."""
+        parent_id = (
+            self.coordinator.config_entry.unique_id
+            or self.coordinator.config_entry.entry_id
+        )
+        return DeviceInfo(
+            connections={(CONNECTION_NETWORK_MAC, self._mac)},
+            name=self._cached_device.name,
+            via_device=(DOMAIN, parent_id),
+        )
