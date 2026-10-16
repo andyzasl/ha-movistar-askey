@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -44,6 +45,20 @@ def _status_diagnostics(coordinator: Any) -> dict[str, Any]:
         },
         "wifi_clients_in_device_map": sum(
             mac in coordinator.present for mac in status.wifi_clients
+        ),
+        "clients_by_node": dict(
+            Counter(
+                coordinator.data[mac].node or coordinator.data[mac].interface or "?"
+                for mac in coordinator.present
+                if mac in coordinator.data
+            )
+        ),
+        "device_map_link_values": dict(
+            Counter(
+                str(coordinator.data[mac].link)
+                for mac in coordinator.present
+                if mac in coordinator.data
+            )
         ),
         "access_point_ids": sorted(
             {client.ap_id for client in clients if client.ap_id is not None}

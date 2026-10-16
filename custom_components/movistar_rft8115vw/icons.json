@@ -46,6 +46,9 @@
       },
       "wifi_clients_repeater": {
         "default": "mdi:access-point-network"
+      },
+      "person": {
+        "default": "mdi:account"
       }
     }
   }

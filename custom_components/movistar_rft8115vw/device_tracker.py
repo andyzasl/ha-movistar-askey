@@ -106,6 +106,7 @@ class MovistarAskeyDeviceTracker(
             "node": device.node if is_present else None,
             "access_point": access_point_name(device, client) if is_present else None,
             "private_mac": device.is_private_mac,
+            "person": ", ".join(self.coordinator.person_names(self._mac)) or None,
         }
         if client:
             attributes.update(

@@ -2,7 +2,7 @@
 
 All notable changes to this modernization fork are documented here.
 
-## 2.0.0-beta.4
+## 2.0.0-beta.5
 
 - Migrate config entries from the version 1 integration
   (`luis-garza/movistar_rft8115vw`): rename `interval_seconds` to
@@ -40,6 +40,14 @@ All notable changes to this modernization fork are documented here.
   `movistar_rft8115vw_client_roamed`) when a client changes node or band.
 - Make duplicated client names unique with a MAC suffix, for example
   `iPhone (81:7E)`. Names set in Home Assistant are kept.
+- The device model line starts with the node: `Router · Wi-Fi 5 GHz ·
+  private address`, `Repeater · Wi-Fi`.
+- Add a **Person** sensor per client and a `person` tracker attribute, listing
+  the persons that use the client's tracker.
+- Apply option changes with one reload instead of two when client sensors are
+  enabled.
+- Diagnostics include client counts per node and device-map link values.
+- Release notes are taken from this changelog.
 
 - Reuse the router web session between polls and log in again only when the
   router no longer accepts it. Polling no longer displaces other router web

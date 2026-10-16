@@ -69,11 +69,17 @@ def signal_sensor_enabled_default(
 
 
 @callback
-def async_sync_signal_sensors(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Enable or disable existing signal sensors to match the configured mode."""
+def async_sync_signal_sensors(hass: HomeAssistant, entry: ConfigEntry) -> int:
+    """
+    Enable or disable client sensors to match the configured mode.
+
+    Returns the number of sensors enabled. Home Assistant reloads the entry
+    about 30 seconds after any entity is enabled.
+    """
     mode = signal_sensor_mode(entry)
     if mode == SIGNAL_SENSORS_MANUAL:
-        return
+        return 0
+    enabled = 0
     registry = er.async_get(hass)
     for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
         if entity.domain != Platform.SENSOR:
@@ -93,10 +99,13 @@ def async_sync_signal_sensors(hass: HomeAssistant, entry: ConfigEntry) -> None:
         wanted = desired_disabled_by(mode, _tracker_enabled(registry, mac), current)
         if wanted == NO_CHANGE:
             continue
+        if wanted is None:
+            enabled += 1
         registry.async_update_entity(
             entity.entity_id,
             disabled_by=er.RegistryEntryDisabler(wanted) if wanted else None,
         )
+    return enabled
 
 
 @callback

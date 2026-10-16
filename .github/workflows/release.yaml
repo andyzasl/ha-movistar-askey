@@ -17,7 +17,19 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          args=("$GITHUB_REF_NAME" --verify-tag --generate-notes --title "$GITHUB_REF_NAME")
+          set -o errexit -o pipefail -o nounset
+          # Release notes: the CHANGELOG.md section headed "## <tag>".
+          notes="$(awk -v version="$GITHUB_REF_NAME" '
+            $0 == "## " version { found = 1; next }
+            /^## / { found = 0 }
+            found
+          ' CHANGELOG.md)"
+          args=("$GITHUB_REF_NAME" --verify-tag --title "$GITHUB_REF_NAME")
+          if [[ -n "${notes//[[:space:]]/}" ]]; then
+            args+=(--notes "$notes")
+          else
+            args+=(--generate-notes)
+          fi
           if [[ "$GITHUB_REF_NAME" == *-* ]]; then
             args+=(--prerelease)
           fi

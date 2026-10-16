@@ -102,8 +102,9 @@ not in the router's association table, so they have no band or RSSI.
 Each client's device card shows where it is connected:
 
 - **Connected via** points to the router or to the **Mesh repeater** device.
-- The model line shows how, for example `Wi-Fi 5 GHz · private address` or
-  `Ethernet`. *Private address* means the device uses a randomized Wi-Fi MAC.
+- The model line shows where and how, for example `Router · Wi-Fi 5 GHz ·
+  private address`, `Repeater · Wi-Fi` or `Ethernet`. *Private address* means
+  the device uses a randomized Wi-Fi MAC.
 
 Both are updated on every poll. Duplicated names, common for Apple devices,
 get a MAC suffix such as `iPhone (81:7E)`; renaming a device in Home Assistant
@@ -128,8 +129,9 @@ affected.
 
 #### Client sensors
 
-Each client gets an **IP address** sensor, and each client seen on the router's
-Wi-Fi also gets a **Wi-Fi signal** sensor (dBm). Both are attached to the
+Each client gets an **IP address** and a **Person** sensor (the persons using
+its tracker), and each client seen on the router's Wi-Fi also gets a **Wi-Fi
+signal** sensor (dBm). All are attached to the
 client device. The **Client sensors** option controls whether they are
 enabled:
 
@@ -271,6 +273,10 @@ unavailable. The diagnostic **Last successful poll** sensor and its
 The integration keeps its router web session between polls. Logging in to the
 router web interface from a browser can still end that session; the
 integration then logs in again on the next poll.
+
+When the integration reloads (after an update, an options change, or enabling
+entities), its trackers are `unavailable` for a few seconds. Person and zone
+automations should treat `unavailable` as unknown, not as away.
 
 ### A client tracker is missing
 

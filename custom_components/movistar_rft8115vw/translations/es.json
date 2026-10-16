@@ -52,7 +52,7 @@
         "data": {
           "scan_interval": "Intervalo de consulta",
           "consider_home": "Periodo de gracia de presencia",
-          "signal_sensors": "Sensores de cliente (señal Wi-Fi, dirección IP)"
+          "signal_sensors": "Sensores de cliente (señal Wi-Fi, dirección IP, persona)"
         },
         "data_description": {
           "scan_interval": "Cada cuánto se consulta el router. Por defecto 300 segundos (5 minutos); mínimo 30.",
@@ -117,6 +117,9 @@
       },
       "wifi_clients_repeater": {
         "name": "Dispositivos en el repetidor"
+      },
+      "person": {
+        "name": "Persona"
       }
     }
   },

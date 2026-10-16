@@ -5,10 +5,11 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 
-from .router import NODE_REPEATER, RouterDevice
+from .router import NODE_REPEATER, NODE_ROUTER, RouterDevice
 from .status import WifiClient
 
 _CONNECTION_NAMES = {"WIFI": "Wi-Fi", "ETH": "Ethernet"}
+_NODE_NAMES = {NODE_ROUTER: "Router", NODE_REPEATER: "Repeater"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +55,7 @@ def client_model(device: RouterDevice, band: str | None = None) -> str | None:
     parts = [
         part
         for part in (
+            _NODE_NAMES.get(device.node or ""),
             connection,
             "private address" if device.is_private_mac else None,
         )

@@ -14,17 +14,22 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
+    EVENT_STATE_CHANGED,
     PERCENTAGE,
     SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
     EntityCategory,
 )
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .clients import access_point_name
-from .const import IP_SENSOR_UNIQUE_ID_SUFFIX, SIGNAL_SENSOR_UNIQUE_ID_SUFFIX
+from .const import (
+    IP_SENSOR_UNIQUE_ID_SUFFIX,
+    PERSON_SENSOR_UNIQUE_ID_SUFFIX,
+    SIGNAL_SENSOR_UNIQUE_ID_SUFFIX,
+)
 from .coordinator import MovistarAskeyCoordinator
 from .device import router_device_info
 from .router import NODE_REPEATER
@@ -180,12 +185,13 @@ async def async_setup_entry(
             for mac in new_signal
         ]
         entities.extend(
-            ClientIpSensor(
+            sensor_class(
                 coordinator,
                 mac,
                 enabled_default=signal_sensor_enabled_default(hass, entry, mac),
             )
             for mac in new_ip
+            for sensor_class in (ClientIpSensor, ClientPersonSensor)
         )
         if entities:
             async_add_entities(entities)
@@ -297,6 +303,31 @@ class ClientSignalSensor(_ClientSensor):
             "band": client.band if client else None,
             "access_point": access_point_name(device, client),
         }
+
+
+class ClientPersonSensor(_ClientSensor):
+    """Report which persons use this client's device tracker."""
+
+    _attr_translation_key = "person"
+    _unique_id_suffix = PERSON_SENSOR_UNIQUE_ID_SUFFIX
+
+    async def async_added_to_hass(self) -> None:
+        """Also update when a person's tracker assignment changes."""
+        await super().async_added_to_hass()
+
+        @callback
+        def _person_changed(event: Event[EventStateChangedData]) -> None:
+            if event.data["entity_id"].startswith("person."):
+                self.async_write_ha_state()
+
+        self.async_on_remove(
+            self.hass.bus.async_listen(EVENT_STATE_CHANGED, _person_changed)
+        )
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the person names, or None when no person uses the tracker."""
+        return ", ".join(self.coordinator.person_names(self._mac)) or None
 
 
 class ClientIpSensor(_ClientSensor):

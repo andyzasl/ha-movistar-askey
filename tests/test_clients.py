@@ -61,8 +61,14 @@ def test_client_model() -> None:
     """The model line shows connection, band and private address."""
     devices = parse_device_data(PAGE)
 
-    assert client_model(devices["CE:FD:DE:2D:81:7E"]) == "Wi-Fi · private address"
-    assert client_model(devices["D8:A0:11:BF:0A:B5"], "2.4 GHz") == "Wi-Fi 2.4 GHz"
+    assert (
+        client_model(devices["CE:FD:DE:2D:81:7E"])
+        == "Repeater · Wi-Fi · private address"
+    )
+    assert (
+        client_model(devices["D8:A0:11:BF:0A:B5"], "2.4 GHz")
+        == "Router · Wi-Fi 2.4 GHz"
+    )
     assert client_model(devices["90:09:D0:00:00:01"]) == "Ethernet"
 
 

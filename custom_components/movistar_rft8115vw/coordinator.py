@@ -6,9 +6,11 @@ import logging
 from datetime import datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -159,6 +161,19 @@ class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
         if (device := (self.data or {}).get(mac)) is None:
             return fallback
         return display_name(device, self.suffixed)
+
+    def person_names(self, mac: str) -> list[str]:
+        """Return the names of persons that use this client's device tracker."""
+        tracker_id = er.async_get(self.hass).async_get_entity_id(
+            Platform.DEVICE_TRACKER, DOMAIN, mac
+        )
+        if tracker_id is None:
+            return []
+        return sorted(
+            state.name
+            for state in self.hass.states.async_all("person")
+            if tracker_id in (state.attributes.get("device_trackers") or ())
+        )
 
     def _detect_roams(self, devices: dict[str, RouterDevice]) -> None:
         """Fire an event for clients whose node or band changed since last poll."""
