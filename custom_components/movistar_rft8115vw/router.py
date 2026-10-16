@@ -85,9 +85,32 @@ class MovistarAskeyClient:
         self._session = session
         self._base_url = f"http://{host.strip().rstrip('/')}"
         self._password = password
+        self._cookies: dict[str, str] = {}
 
     async def async_get_devices(self) -> dict[str, RouterDevice]:
-        """Authenticate and return all currently connected devices."""
+        """
+        Return all currently connected devices.
+
+        The router session is reused between polls. A new login happens only
+        when no session exists or the router no longer accepts it, so polling
+        does not repeatedly displace other web-interface sessions.
+        """
+        if self._cookies:
+            page = await self._async_get_map_page(self._cookies)
+            if "deviceData" in page:
+                return parse_device_data(page)
+            self._cookies = {}
+
+        cookies, login_page = await self._async_login()
+        page = await self._async_get_map_page(cookies)
+        if _authentication_failed(page, login_page):
+            raise InvalidAuthError("The router rejected the supplied password")
+        devices = parse_device_data(page)
+        self._cookies = cookies
+        return devices
+
+    async def _async_login(self) -> tuple[dict[str, str], str]:
+        """Start a new router session and return its cookies and login page."""
         cookies = await self._async_initial_cookies()
         headers = self._cookie_headers(cookies)
 
@@ -112,7 +135,10 @@ class MovistarAskeyClient:
             raise CannotConnectError(
                 "Could not submit credentials to the router"
             ) from err
+        return cookies, login_page
 
+    async def _async_get_map_page(self, cookies: dict[str, str]) -> str:
+        """Return the local-network map page for the given session cookies."""
         headers = self._cookie_headers(cookies)
         try:
             async with self._session.get(
@@ -130,10 +156,7 @@ class MovistarAskeyClient:
             raise CannotConnectError(
                 "Could not retrieve the router network map"
             ) from err
-
-        if _authentication_failed(page, login_page):
-            raise InvalidAuthError("The router rejected the supplied password")
-        return parse_device_data(page)
+        return page
 
     async def async_test_credentials(self) -> None:
         """Raise a typed exception unless credentials and parser both work."""

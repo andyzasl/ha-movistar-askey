@@ -67,7 +67,7 @@ class MovistarAskeyDeviceTracker(
     @property
     def is_connected(self) -> bool:
         """Return whether the client is present within the grace period."""
-        if self._mac in self.coordinator.data:
+        if self._mac in self.coordinator.present:
             return True
         last_seen = self.coordinator.last_seen.get(self._mac)
         if last_seen is None or self.coordinator.consider_home == 0:

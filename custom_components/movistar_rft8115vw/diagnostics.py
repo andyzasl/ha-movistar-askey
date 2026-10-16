@@ -22,4 +22,10 @@ async def async_get_config_entry_diagnostics(
         "connected_device_count": len(coordinator.data or {}),
         "polling_interval_seconds": int(coordinator.update_interval.total_seconds()),
         "presence_grace_seconds": coordinator.consider_home,
+        "consecutive_failures": coordinator.consecutive_failures,
+        "last_successful_poll": (
+            coordinator.last_successful_poll.isoformat()
+            if coordinator.last_successful_poll
+            else None
+        ),
     }

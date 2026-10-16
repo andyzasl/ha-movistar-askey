@@ -165,6 +165,19 @@ The router must be reachable from Home Assistant. Verify the configured IP and
 that Home Assistant is on the same routed local network. Startup connection
 failures are retried by Home Assistant.
 
+### Short router outages
+
+A failed poll is treated as a gap in data collection, not as clients leaving.
+Entities stay available for up to two consecutive failed polls; trackers keep
+their state for the presence grace period after their last successful
+observation. After the third consecutive failure the entities become
+unavailable. The diagnostic **Last successful poll** sensor and its
+`consecutive_failures` attribute show the current state.
+
+The integration keeps its router web session between polls. Logging in to the
+router web interface from a browser can still end that session; the
+integration then logs in again on the next poll.
+
 ### A client tracker is missing
 
 The router must report the client at least once before its tracker can be

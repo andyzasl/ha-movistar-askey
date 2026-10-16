@@ -2,6 +2,20 @@
 
 All notable changes to this modernization fork are documented here.
 
+## Unreleased
+
+- Reuse the router web session between polls and log in again only when the
+  router no longer accepts it. Polling no longer displaces other router web
+  sessions on every scan.
+- Report invalid credentials only when a fresh login fails, so an expired
+  session no longer starts reauthentication.
+- Keep entities available through up to two consecutive failed polls. Trackers
+  fall back to the presence grace period instead of turning `unavailable`
+  together, which previously could empty `zone.home` and trigger away
+  automations.
+- Add a diagnostic **Last successful poll** sensor with a
+  `consecutive_failures` attribute, and include both values in diagnostics.
+
 ## 2.0.0-beta.3
 
 - Register the router device before creating client trackers.

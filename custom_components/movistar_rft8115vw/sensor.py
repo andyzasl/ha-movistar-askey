@@ -2,8 +2,15 @@
 
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity, SensorStateClass
+from datetime import datetime
+
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -19,7 +26,12 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up router sensors."""
-    async_add_entities([ConnectedDevicesSensor(entry.runtime_data)])
+    async_add_entities(
+        [
+            ConnectedDevicesSensor(entry.runtime_data),
+            LastSuccessfulPollSensor(entry.runtime_data),
+        ]
+    )
 
 
 class ConnectedDevicesSensor(
@@ -55,6 +67,40 @@ class ConnectedDevicesSensor(
                 )
             ]
         }
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return metadata for the parent router device."""
+        return router_device_info(self.coordinator.config_entry)
+
+
+class LastSuccessfulPollSensor(
+    CoordinatorEntity[MovistarAskeyCoordinator],
+    SensorEntity,
+):
+    """Report when the router last answered a poll successfully."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Last successful poll"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: MovistarAskeyCoordinator) -> None:
+        """Initialize the router's last-successful-poll timestamp."""
+        super().__init__(coordinator)
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.unique_id}_last_successful_poll"
+        )
+
+    @property
+    def native_value(self) -> datetime | None:
+        """Return the time of the latest successful router poll."""
+        return self.coordinator.last_successful_poll
+
+    @property
+    def extra_state_attributes(self) -> dict[str, int]:
+        """Return the current run of failed polls."""
+        return {"consecutive_failures": self.coordinator.consecutive_failures}
 
     @property
     def device_info(self) -> DeviceInfo:
