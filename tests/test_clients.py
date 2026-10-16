@@ -6,6 +6,7 @@ from custom_components.movistar_rft8115vw.clients import (
     client_model,
     detect_roams,
     display_name,
+    roam_message,
     update_suffixed,
 )
 from custom_components.movistar_rft8115vw.router import (
@@ -99,3 +100,14 @@ def test_detect_roams() -> None:
     roams = {mac for mac, _, _ in detect_roams(previous, current)}
 
     assert roams == {"A", "C"}
+
+
+def test_roam_message() -> None:
+    """Roam messages name the client and both attachments."""
+    message = roam_message(
+        "iPhone (F0:06)",
+        Attachment("router", "5 GHz"),
+        Attachment("repeater", None),
+    )
+
+    assert message == "iPhone (F0:06) roamed: router 5 GHz → repeater"

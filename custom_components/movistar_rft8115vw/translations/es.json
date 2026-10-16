@@ -52,7 +52,7 @@
         "data": {
           "scan_interval": "Intervalo de consulta",
           "consider_home": "Periodo de gracia de presencia",
-          "signal_sensors": "Sensores de cliente (señal Wi-Fi, dirección IP, persona)"
+          "signal_sensors": "Sensores de cliente (señal Wi-Fi, dirección IP, persona, cambios de punto de acceso)"
         },
         "data_description": {
           "scan_interval": "Cada cuánto se consulta el router. Por defecto 300 segundos (5 minutos); mínimo 30.",
@@ -120,6 +120,12 @@
       },
       "person": {
         "name": "Persona"
+      },
+      "roams": {
+        "name": "Cambios de punto de acceso"
+      },
+      "client_roams": {
+        "name": "Cambios de punto de acceso de clientes"
       }
     }
   },

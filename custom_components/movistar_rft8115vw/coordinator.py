@@ -22,6 +22,7 @@ from .clients import (
     client_model,
     detect_roams,
     display_name,
+    roam_message,
     update_suffixed,
 )
 from .const import (
@@ -76,6 +77,9 @@ class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
         self._last_uptime: int | None = None
         self.suffixed: set[str] = set()
         self._attachments: dict[str, Attachment] = {}
+        # Roam counters; restored by their sensors after a restart.
+        self.roam_counts: dict[str, int] = {}
+        self.total_roams = 0
 
     async def _async_update_data(self) -> dict[str, RouterDevice]:
         try:
@@ -182,15 +186,24 @@ class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
             for mac, device in devices.items()
         }
         for mac, before, now in detect_roams(self._attachments, current):
+            name = display_name(devices[mac], self.suffixed)
+            self.roam_counts[mac] = self.roam_counts.get(mac, 0) + 1
+            self.total_roams += 1
+            device_entry = dr.async_get(self.hass).async_get_device(
+                connections={(dr.CONNECTION_NETWORK_MAC, mac)}
+            )
             self.hass.bus.async_fire(
                 EVENT_CLIENT_ROAMED,
                 {
                     "mac": mac,
-                    "name": display_name(devices[mac], self.suffixed),
+                    "name": name,
+                    "device_id": device_entry.id if device_entry else None,
                     "from_node": before.node,
                     "to_node": now.node,
                     "from_band": before.band,
                     "to_band": now.band,
+                    "message": roam_message(name, before, now),
+                    "roam_count": self.roam_counts[mac],
                 },
             )
         self._attachments = current
