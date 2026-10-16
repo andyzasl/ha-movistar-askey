@@ -35,6 +35,19 @@ LINK_REPEATER = 7
 NODE_ROUTER = "router"
 NODE_REPEATER = "repeater"
 
+MAP_PAGE = "te_mapa_red_local.asp"
+LOGIN_PAGE = "te_acceso_router.cgi"
+
+
+@dataclass(frozen=True, slots=True)
+class Capture:
+    """The last response of one router endpoint, for diagnostics."""
+
+    status: int | None = None
+    body: str = ""
+    error: str | None = None
+    cookie_names: tuple[str, ...] = ()
+
 
 class MovistarAskeyError(Exception):
     """Base exception for router communication errors."""
@@ -154,6 +167,14 @@ class MovistarAskeyClient:
         self._base_url = f"http://{host.strip().rstrip('/')}"
         self._password = password
         self._cookies: dict[str, str] = {}
+        # Last response per endpoint, kept in memory for diagnostics only.
+        # Diagnostics reduce them to structure; raw bodies are never exported.
+        self.captures: dict[str, Capture] = {}
+        self.stats: dict[str, int] = {
+            "logins": 0,
+            "session_reuses": 0,
+            "session_expirations": 0,
+        }
 
     async def async_get_devices(self) -> dict[str, RouterDevice]:
         """
@@ -166,9 +187,12 @@ class MovistarAskeyClient:
         if self._cookies:
             page = await self._async_get_map_page(self._cookies)
             if "deviceData" in page:
+                self.stats["session_reuses"] += 1
                 return parse_device_data(page)
+            self.stats["session_expirations"] += 1
             self._cookies = {}
 
+        self.stats["logins"] += 1
         cookies, login_page = await self._async_login()
         page = await self._async_get_map_page(cookies)
         if _authentication_failed(page, login_page):
@@ -207,6 +231,7 @@ class MovistarAskeyClient:
         """POST to an XML status endpoint and return its body, or None."""
         if not self._cookies:
             return None
+        key = endpoint + "".join(f"?{k}={v}" for k, v in data.items())
         headers = {
             **self._cookie_headers(self._cookies),
             "X-Requested-With": "XMLHttpRequest",
@@ -218,11 +243,14 @@ class MovistarAskeyClient:
                 data=data,
                 timeout=aiohttp.ClientTimeout(total=15),
             ) as response:
+                body = await response.text()
+                self.captures[key] = Capture(status=response.status, body=body)
                 if response.status >= 400:
                     _LOGGER.debug("%s returned HTTP %s", endpoint, response.status)
                     return None
-                return await response.text()
+                return body
         except (aiohttp.ClientError, TimeoutError, OSError) as err:
+            self.captures[key] = Capture(error=type(err).__name__)
             _LOGGER.debug("Could not read %s: %s", endpoint, err)
             return None
 
@@ -243,6 +271,11 @@ class MovistarAskeyClient:
                 allow_redirects=True,
             ) as response:
                 login_page = await response.text()
+                self.captures[LOGIN_PAGE] = Capture(
+                    status=response.status,
+                    body=login_page,
+                    cookie_names=tuple(sorted(response.cookies)),
+                )
                 if response.status >= 400:
                     raise CannotConnectError(
                         f"Router login returned HTTP {response.status}"
@@ -265,11 +298,13 @@ class MovistarAskeyClient:
                 allow_redirects=True,
             ) as response:
                 page = await response.text()
+                self.captures[MAP_PAGE] = Capture(status=response.status, body=page)
                 if response.status >= 400:
                     raise CannotConnectError(
                         f"Network map returned HTTP {response.status}"
                     )
         except (aiohttp.ClientError, TimeoutError, OSError) as err:
+            self.captures[MAP_PAGE] = Capture(error=type(err).__name__)
             raise CannotConnectError(
                 "Could not retrieve the router network map"
             ) from err

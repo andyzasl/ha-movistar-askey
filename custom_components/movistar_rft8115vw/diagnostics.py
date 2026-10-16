@@ -9,6 +9,10 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.redact import async_redact_data
+from homeassistant.loader import async_get_integration
+
+from .const import DOMAIN
+from .diag import link_crosstab, summarize_capture
 
 
 async def async_get_config_entry_diagnostics(
@@ -17,7 +21,11 @@ async def async_get_config_entry_diagnostics(
 ) -> dict[str, Any]:
     """Return diagnostics without device names, addresses, or credentials."""
     coordinator = entry.runtime_data
+    client = coordinator.client
+    integration = await async_get_integration(hass, DOMAIN)
+    last_error = coordinator.last_exception
     return {
+        "integration_version": str(integration.version),
         "config_entry": async_redact_data(entry.as_dict(), {CONF_PASSWORD}),
         "router_available": coordinator.last_update_success,
         "connected_device_count": len(coordinator.data or {}),
@@ -29,7 +37,18 @@ async def async_get_config_entry_diagnostics(
             if coordinator.last_successful_poll
             else None
         ),
+        "last_error": type(last_error).__name__ if last_error else None,
+        "session": dict(client.stats),
         "status": _status_diagnostics(coordinator),
+        "link_vs_association": link_crosstab(
+            coordinator.data or {},
+            coordinator.present,
+            coordinator.status.wifi_clients,
+        ),
+        "endpoints": {
+            name: summarize_capture(name, capture)
+            for name, capture in sorted(client.captures.items())
+        },
     }
 
 
@@ -63,6 +82,16 @@ def _status_diagnostics(coordinator: Any) -> dict[str, Any]:
         "access_point_ids": sorted(
             {client.ap_id for client in clients if client.ap_id is not None}
         ),
+        "stations_per_access_point": {
+            f"{band} AP {ap_id}": count
+            for (band, ap_id), count in sorted(
+                Counter((client.band, client.ap_id) for client in clients).items(),
+                key=lambda item: (
+                    item[0][0],
+                    item[0][1] if item[0][1] is not None else -1,
+                ),
+            )
+        },
         "radios": {
             band: {
                 "enabled": radio.enabled,

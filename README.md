@@ -331,6 +331,18 @@ counts per band and per node, radio settings and the router summary (model,
 firmware, uptime, CPU, memory). They do not include credentials or any client
 names, IP addresses or MAC addresses.
 
+To support other router models and firmware, diagnostics also describe the
+last response of every router endpoint the integration uses: HTTP status,
+transport errors, XML element paths, field names, the router `Result` code,
+enum values (for example channel, bandwidth, Wi-Fi standard, firmware
+identity) and the *shape* of other values (digits become `9`, letters `a`).
+The device map is described per column (row lengths, value counts for enum
+columns). A cross-table compares the device map's link field with the router's
+association table, and the login response shows its cookie names. Identifying
+fields (MAC and IP addresses, SSIDs, host names, serial numbers) are always
+reported as `redacted`. When opening an issue about an unsupported model,
+attach a diagnostics download.
+
 ### Person sensor or Related view shows no person
 
 A person is linked to a tracker *entity*, not to a device, so the device page's

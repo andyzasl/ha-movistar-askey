@@ -2,6 +2,15 @@
 
 All notable changes to this modernization fork are documented here.
 
+## 2.0.0-beta.6
+
+- Diagnostics describe every router endpoint the integration uses, so other
+  models and firmware can be supported from a diagnostics download: HTTP
+  status, errors, XML paths and field names, `Result` codes, enum values and
+  value shapes, device-map columns, link field versus association table,
+  login cookie names, session reuse counts, stations per access point, last
+  error type and integration version. Identifying fields are always redacted.
+
 ## 2.0.0-beta.5
 
 - Migrate config entries from the version 1 integration
