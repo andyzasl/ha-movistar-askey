@@ -11,6 +11,8 @@ All notable changes to this project are documented here.
 - Add a **Roams** counter per client and a **Client roams** total on the
   router; both survive restarts.
 - Add device list and router screenshots to the README.
+- Releases are automatic: merging a bumped manifest version to `main` creates
+  the tag and publishes the release; no manual tagging.
 
 ## 2.1.0
 
