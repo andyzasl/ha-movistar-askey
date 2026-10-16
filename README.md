@@ -5,9 +5,10 @@
 [![Release](https://img.shields.io/github/v/release/jardenberg/ha-movistar-askey?include_prereleases&label=release)](https://github.com/jardenberg/ha-movistar-askey/releases)
 
 A modern, local-polling Home Assistant integration for compatible Movistar
-Askey routers. It reads the router's local-network map and exposes a router
-device, a connected-device count sensor, and optional presence trackers—without
-using a Movistar cloud service.
+Askey routers. It reads the router's local web interface and exposes presence
+trackers, per-client Wi-Fi details (band, signal, router or mesh repeater),
+router health sensors, and reboot and roaming events—without using a Movistar
+cloud service.
 
 This project modernizes
 [`luis-garza/movistar_rft8115vw`](https://github.com/luis-garza/movistar_rft8115vw).
@@ -17,8 +18,8 @@ options, and privacy-preserving diagnostics.
 
 > [!WARNING]
 > Version 2 is currently a prerelease. It has been tested live with a Movistar
-> RTF8316VW and Home Assistant 2026.7.3, but you should keep a recent Home
-> Assistant backup while testing it.
+> RTF8316VW and Home Assistant 2026.7.3 and 2026.10.1, but you should keep a
+> recent Home Assistant backup while testing it.
 
 ## Compatibility
 
@@ -36,9 +37,12 @@ password.
 
 | Model | Hardware | Firmware | Customization | Tested |
 | --- | --- | --- | --- | --- |
-| Askey RTF8316VW | REV4 | `GL_g1.18_R8316_V2.19` | `TEF-ES` | Device map, session reuse, XML status endpoints (`cbListWifiAccPtAssociation`, `cbGetWifi`, `cbGetSummary`) |
+| Askey RTF8316VW | REV4 | `GL_g1.18_R8316_V2.19` | `TEF-ES` | Device map (including the router/repeater link field), session reuse, XML status endpoints (`cbListWifiAccPtAssociation`, `cbGetWifi`, `cbGetSummary`) |
 
-The XML status endpoints (Wi-Fi details, router sensors, reboot event) are
+The mesh setup tested was the router as EasyMesh controller with one MitraStar
+repeater (agent) on a wireless backhaul.
+
+Wi-Fi details, router sensors, router/repeater attachment and the events are
 verified only on the firmware above. Other firmware may name or nest fields
 differently; the related sensors then stay empty while device tracking keeps
 working. Router firmware is shown on the router device in Home Assistant;
@@ -46,16 +50,22 @@ please include it when reporting results.
 
 ## What the integration provides
 
-- Setup and reauthentication through **Settings → Devices & services**
-- Local communication directly with the router over HTTP
-- One Home Assistant device representing the router
-- A **Connected devices** sensor
-- A current client inventory in the sensor's `devices` attribute
-- One device tracker for every MAC address observed by the router
-- Configurable polling and presence-grace intervals
-- Diagnostics with the password, client names, IP addresses, and MAC addresses
-  excluded
-- English and Spanish setup text
+- Setup, reauthentication and reconfiguration through **Settings → Devices &
+  services**
+- Local communication directly with the router over HTTP, reusing one web
+  session between polls
+- A router device with firmware and hardware revision, and a **Mesh repeater**
+  device when clients use the repeater
+- One device tracker per client MAC address, disabled by default
+- Per-client device cards showing where and how the client is connected
+- Optional per-client sensors: IP address, Wi-Fi signal and person
+- Router sensors: connected devices, Wi-Fi clients per band and on the
+  repeater, channels, CPU, memory, last boot, reachability
+- Events for router reboots and client roaming
+- A repair notice when the router stays unreachable
+- Configurable polling, presence grace period and client sensors
+- Diagnostics without credentials, client names, IP addresses or MAC addresses
+- English and Spanish text
 
 ### Entities
 
@@ -92,10 +102,15 @@ client remains `home` for the configured presence-grace period after it stops
 appearing in the router map.
 
 Trackers also expose `connection` (`wifi` or `ethernet`), `node` (`router` or
-`repeater`), `access_point` and `private_mac`. For clients associated directly
-with the router's Wi-Fi, they add `band`, `ap_id`, `rssi` (dBm), `link_rate`,
-`wifi_standard` and `associated_seconds`. Clients behind the mesh repeater are
-not in the router's association table, so they have no band or RSSI.
+`repeater`), `access_point`, `private_mac` and `person`. For clients associated
+directly with the router's Wi-Fi, they add `band`, `ap_id`, `rssi` (dBm),
+`link_rate`, `wifi_standard` and `associated_seconds`. Clients behind the mesh
+repeater are not in the router's association table, so they have no band or
+RSSI.
+
+A device with a private (randomized) Wi-Fi address can appear as a new device
+when the address changes. For devices assigned to a person, set the private
+Wi-Fi address on the device to **Fixed** for this network.
 
 #### Client devices
 
@@ -131,9 +146,8 @@ affected.
 
 Each client gets an **IP address** and a **Person** sensor (the persons using
 its tracker), and each client seen on the router's Wi-Fi also gets a **Wi-Fi
-signal** sensor (dBm). All are attached to the
-client device. The **Client sensors** option controls whether they are
-enabled:
+signal** sensor (dBm). All are attached to the client device. The **Client
+sensors** option controls whether they are enabled:
 
 | Mode | Behavior |
 | --- | --- |
@@ -156,6 +170,27 @@ The **Router event** entity records:
 - `client_roamed` when a client present in two consecutive polls changes node
   (router ⇄ repeater) or band (bus event `movistar_rft8115vw_client_roamed`
   with `mac`, `name`, `from_node`, `to_node`, `from_band`, `to_band`).
+
+Example: notify when a client moves between router and repeater.
+
+```yaml
+triggers:
+  - trigger: event
+    event_type: movistar_rft8115vw_client_roamed
+conditions:
+  - condition: template
+    value_template: "{{ trigger.event.data.from_node != trigger.event.data.to_node }}"
+actions:
+  - action: notify.notify
+    data:
+      message: >-
+        {{ trigger.event.data.name }} moved from
+        {{ trigger.event.data.from_node }} to {{ trigger.event.data.to_node }}
+```
+
+Roams are detected between polls, so a short polling interval (for example 60
+seconds) catches more of them; transitions faster than the interval are not
+seen.
 
 #### Repairs
 
@@ -228,12 +263,12 @@ version).
 
 | Option | Default | Allowed range | Purpose |
 | --- | ---: | ---: | --- |
-| Polling interval | 300 seconds | 30–3600 seconds | How often the router map is refreshed |
+| Polling interval | 300 seconds | 30–3600 seconds | How often the router is polled |
 | Presence grace period | 600 seconds | 0–3600 seconds | How long a missing client remains `home` |
-| Client sensors | Manual | Manual, Follow tracker, All | Which per-client signal and IP sensors are enabled |
+| Client sensors | Manual | Manual, Follow tracker, All | Which per-client IP address, Wi-Fi signal and person sensors are enabled |
 
 Internally, the effective presence grace period is never shorter than the
-polling interval.
+polling interval. Saving options reloads the integration once.
 
 To change the router address or password, use **⋮ → Reconfigure** on the same
 entry row. Existing entities are kept.
@@ -267,8 +302,9 @@ A failed poll is treated as a gap in data collection, not as clients leaving.
 Entities stay available for up to two consecutive failed polls; trackers keep
 their state for the presence grace period after their last successful
 observation. After the third consecutive failure the entities become
-unavailable. The diagnostic **Last successful poll** sensor and its
-`consecutive_failures` attribute show the current state.
+unavailable and a repair notice appears. The diagnostic **Last successful
+poll** sensor, its `consecutive_failures` attribute and the **Router
+reachable** sensor show the current state.
 
 The integration keeps its router web session between polls. Logging in to the
 router web interface from a browser can still end that session; the
@@ -290,8 +326,17 @@ created. After the next successful poll, find disabled entities under
 - Diagnostics: open the integration entry menu and choose **Download
   diagnostics**
 
-Diagnostics include availability, device count, and timing options. They do not
-include credentials or the client inventory.
+Diagnostics include availability, timing options, failure counts, Wi-Fi client
+counts per band and per node, radio settings and the router summary (model,
+firmware, uptime, CPU, memory). They do not include credentials or any client
+names, IP addresses or MAC addresses.
+
+### Person sensor or Related view shows no person
+
+A person is linked to a tracker *entity*, not to a device, so the device page's
+**Related** card does not list persons. Open the tracker entity and choose
+**Related**, or enable the client's **Person** sensor. Persons must use this
+integration's tracker (**Settings → People → [person] → Track device**).
 
 ## Privacy and security
 
@@ -322,11 +367,18 @@ The router parser has no cloud dependency. When changing authentication logic,
 add a regression fixture that reflects the HTML returned by the relevant router
 firmware without committing passwords or a real client inventory.
 
+To publish a release, bump `version` in `manifest.json`, add a matching
+`## <version>` section to [CHANGELOG.md](CHANGELOG.md), and push a tag with the
+same name (for example `2.0.0-beta.5`). The release workflow creates the GitHub
+release with that changelog section as its notes; tags containing `-` are
+marked as pre-releases.
+
 ## Release status
 
 See [CHANGELOG.md](CHANGELOG.md) for version history and
 [GitHub Releases](https://github.com/jardenberg/ha-movistar-askey/releases) for
-installable packages.
+installable packages. HACS shows the release notes in the update dialog. To
+install pre-releases, enable **Show beta versions** on the integration in HACS.
 
 ## License and attribution
 
