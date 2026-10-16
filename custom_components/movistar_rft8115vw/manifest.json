@@ -9,5 +9,5 @@
   "issue_tracker": "https://github.com/jardenberg/ha-movistar-askey/issues",
   "loggers": ["custom_components.movistar_rft8115vw"],
   "single_config_entry": true,
-  "version": "2.0.0-beta.3"
+  "version": "2.0.0-beta.4"
 }

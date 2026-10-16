@@ -139,6 +139,14 @@ Then configure the router:
 
 No username is required by the supported router interface.
 
+## Migrating from the UI-based version 1 integration
+
+Config entries created through the UI by
+[`luis-garza/movistar_rft8115vw`](https://github.com/luis-garza/movistar_rft8115vw)
+are migrated automatically on first start: the polling interval option is
+carried over (raised to at least 30 seconds), and existing device trackers keep
+their entity IDs and person assignments. No reconfiguration is needed.
+
 ## Migrating from the legacy YAML tracker
 
 The old integration used a YAML platform similar to:
@@ -169,8 +177,9 @@ over automatically; verify presence automations after migration.
 
 ## Options
 
-Open the integration's menu under **Settings → Devices & services** and choose
-**Configure**.
+Open **Settings → Devices & services → Movistar Askey Router**. On the entry
+row, select the gear icon (or **⋮ → Options**, depending on the Home Assistant
+version).
 
 | Option | Default | Allowed range | Purpose |
 | --- | ---: | ---: | --- |

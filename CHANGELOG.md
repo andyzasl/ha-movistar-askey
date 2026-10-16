@@ -2,7 +2,16 @@
 
 All notable changes to this modernization fork are documented here.
 
-## Unreleased
+## 2.0.0-beta.4
+
+- Migrate config entries from the version 1 integration
+  (`luis-garza/movistar_rft8115vw`): rename `interval_seconds` to
+  `scan_interval` within the new limits, and convert tracker unique IDs from
+  lower-case to upper-case MAC addresses so existing entities, entity IDs and
+  person assignments are kept. Previously Home Assistant reported
+  "Migration handler not found" and did not load the entry.
+- Add Wi-Fi, radio and router summary data to diagnostics, without client
+  identifiers.
 
 - Reuse the router web session between polls and log in again only when the
   router no longer accepts it. Polling no longer displaces other router web

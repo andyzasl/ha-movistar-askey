@@ -28,4 +28,44 @@ async def async_get_config_entry_diagnostics(
             if coordinator.last_successful_poll
             else None
         ),
+        "status": _status_diagnostics(coordinator),
+    }
+
+
+def _status_diagnostics(coordinator: Any) -> dict[str, Any]:
+    """Summarize optional status data without client identifiers."""
+    status = coordinator.status
+    summary = status.summary
+    clients = status.wifi_clients.values()
+    return {
+        "wifi_clients_by_band": {
+            band: sum(client.band == band for client in clients)
+            for band in sorted({client.band for client in clients})
+        },
+        "wifi_clients_in_device_map": sum(
+            mac in coordinator.present for mac in status.wifi_clients
+        ),
+        "access_point_ids": sorted(
+            {client.ap_id for client in clients if client.ap_id is not None}
+        ),
+        "radios": {
+            band: {
+                "enabled": radio.enabled,
+                "channel": radio.channel,
+                "bandwidth_mhz": radio.bandwidth_mhz,
+            }
+            for band, radio in status.radios.items()
+        },
+        "summary": (
+            {
+                "model": summary.model,
+                "hardware": summary.hardware,
+                "firmware": summary.firmware,
+                "uptime_seconds": summary.uptime_seconds,
+                "cpu_usage": summary.cpu_usage,
+                "memory_usage": summary.memory_usage,
+            }
+            if summary
+            else None
+        ),
     }

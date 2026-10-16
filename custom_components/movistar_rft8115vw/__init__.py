@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
+
 import aiohttp
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 
 from .const import (
     CONF_CONSIDER_HOME,
@@ -16,7 +19,10 @@ from .const import (
 )
 from .coordinator import MovistarAskeyCoordinator
 from .device import router_device_info
+from .migration import migrate_options_v1, migrate_tracker_unique_id_v1
 from .router import MovistarAskeyClient
+
+_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: tuple[Platform, ...] = (Platform.DEVICE_TRACKER, Platform.SENSOR)
 
@@ -64,6 +70,35 @@ async def async_setup_entry(
         ),
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    return True
+
+
+async def async_migrate_entry(
+    hass: HomeAssistant,
+    entry: MovistarAskeyConfigEntry,
+) -> bool:
+    """Migrate entries created by the version 1 integration."""
+    if entry.version > 2:
+        return False
+    if entry.version == 1:
+
+        @callback
+        def _migrate_tracker(
+            entity: er.RegistryEntry,
+        ) -> dict[str, str] | None:
+            if entity.domain != Platform.DEVICE_TRACKER:
+                return None
+            new_id = migrate_tracker_unique_id_v1(entity.unique_id)
+            return {"new_unique_id": new_id} if new_id else None
+
+        await er.async_migrate_entries(hass, entry.entry_id, _migrate_tracker)
+        hass.config_entries.async_update_entry(
+            entry,
+            options=migrate_options_v1(dict(entry.options)),
+            version=2,
+            minor_version=1,
+        )
+        _LOGGER.info("Migrated config entry %s to version 2", entry.title)
     return True
 
 
