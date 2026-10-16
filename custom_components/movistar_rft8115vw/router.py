@@ -3,15 +3,28 @@
 from __future__ import annotations
 
 import ast
+import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 import aiohttp
 
+from .status import (
+    RADIO_BANDS,
+    RadioInfo,
+    RouterSummary,
+    WifiClient,
+    parse_associations,
+    parse_radio,
+    parse_summary,
+)
+
 _DEVICE_DATA_PATTERN = re.compile(r"var\s+deviceData\s*=\s*([\w\W]+?);")
 _MAC_PATTERN = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
 _LOGIN_MARKERS = ("loginPassword", "te_acceso_router")
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class MovistarAskeyError(Exception):
@@ -37,6 +50,16 @@ class RouterDevice:
     mac: str
     ip: str
     name: str
+    interface: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class RouterStatus:
+    """Optional status data read alongside the device map."""
+
+    wifi_clients: dict[str, WifiClient] = field(default_factory=dict)
+    radios: dict[str, RadioInfo] = field(default_factory=dict)
+    summary: RouterSummary | None = None
 
 
 def encode_router_value(value: str) -> str:
@@ -68,7 +91,8 @@ def parse_device_data(page: str) -> dict[str, RouterDevice]:
             continue
         ip = str(record[3]).strip()
         name = str(record[1]).strip() or mac
-        devices[mac] = RouterDevice(mac=mac, ip=ip, name=name)
+        interface = str(record[4]).strip().upper() if len(record) > 4 else ""
+        devices[mac] = RouterDevice(mac=mac, ip=ip, name=name, interface=interface)
     return devices
 
 
@@ -108,6 +132,55 @@ class MovistarAskeyClient:
         devices = parse_device_data(page)
         self._cookies = cookies
         return devices
+
+    async def async_get_status(self) -> RouterStatus:
+        """
+        Return optional Wi-Fi and system status using the current session.
+
+        Call after async_get_devices. Each endpoint is best effort: a failed or
+        unsupported endpoint yields no data instead of failing the poll.
+        """
+        wifi_clients: dict[str, WifiClient] = {}
+        radios: dict[str, RadioInfo] = {}
+        for radio_id, band in RADIO_BANDS.items():
+            if text := await self._async_post_xml(
+                "cbListWifiAccPtAssociation.xml", {"dpm_cfg_wifi_id": str(radio_id)}
+            ):
+                wifi_clients.update(parse_associations(text, band))
+            if (
+                text := await self._async_post_xml(
+                    "cbGetWifi.xml", {"dpm_cfg_wifi_0i": str(radio_id)}
+                )
+            ) and (radio := parse_radio(text, band)):
+                radios[band] = radio
+
+        summary = None
+        if text := await self._async_post_xml("cbGetSummary.xml", {}):
+            summary = parse_summary(text)
+        return RouterStatus(wifi_clients=wifi_clients, radios=radios, summary=summary)
+
+    async def _async_post_xml(self, endpoint: str, data: dict[str, str]) -> str | None:
+        """POST to an XML status endpoint and return its body, or None."""
+        if not self._cookies:
+            return None
+        headers = {
+            **self._cookie_headers(self._cookies),
+            "X-Requested-With": "XMLHttpRequest",
+        }
+        try:
+            async with self._session.post(
+                f"{self._base_url}/cgi-bin/{endpoint}",
+                headers=headers,
+                data=data,
+                timeout=aiohttp.ClientTimeout(total=15),
+            ) as response:
+                if response.status >= 400:
+                    _LOGGER.debug("%s returned HTTP %s", endpoint, response.status)
+                    return None
+                return await response.text()
+        except (aiohttp.ClientError, TimeoutError, OSError) as err:
+            _LOGGER.debug("Could not read %s: %s", endpoint, err)
+            return None
 
     async def _async_login(self) -> tuple[dict[str, str], str]:
         """Start a new router session and return its cookies and login page."""

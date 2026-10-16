@@ -15,6 +15,17 @@ All notable changes to this modernization fork are documented here.
   automations.
 - Add a diagnostic **Last successful poll** sensor with a
   `consecutive_failures` attribute, and include both values in diagnostics.
+- Add Wi-Fi details to client trackers from the router's association table:
+  `connection`, `band`, `ap_id`, `rssi`, `link_rate`, `wifi_standard` and
+  `associated_seconds`.
+- Add router sensors: **Last boot**, **CPU usage**, **Memory usage**,
+  **Wi-Fi clients 2.4 GHz / 5 GHz**, and **Channel 2.4 GHz / 5 GHz** with a
+  `bandwidth_mhz` attribute.
+- Report router firmware and hardware revision on the router device.
+- Fire a `movistar_rft8115vw_router_rebooted` event when router uptime goes
+  backwards.
+- Read the status endpoints best effort: if one fails, the device-map poll
+  still succeeds.
 
 ## 2.0.0-beta.3
 

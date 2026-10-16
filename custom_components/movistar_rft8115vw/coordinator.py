@@ -11,15 +11,18 @@ from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, FAILURE_TOLERANCE
+from .const import DOMAIN, EVENT_ROUTER_REBOOTED, FAILURE_TOLERANCE
 from .router import (
     CannotConnectError,
     InvalidAuthError,
     MovistarAskeyClient,
     RouterDevice,
+    RouterStatus,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+_BOOT_DRIFT = timedelta(seconds=120)
 
 
 class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
@@ -47,6 +50,9 @@ class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
         self.present: frozenset[str] = frozenset()
         self.last_successful_poll: datetime | None = None
         self.consecutive_failures = 0
+        self.status = RouterStatus()
+        self.last_boot: datetime | None = None
+        self._last_uptime: int | None = None
 
     async def _async_update_data(self) -> dict[str, RouterDevice]:
         try:
@@ -66,7 +72,36 @@ class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
         self.present = frozenset(devices)
         self.last_successful_poll = now
         self.consecutive_failures = 0
+        await self._async_update_status(now)
         return devices
+
+    async def _async_update_status(self, now: datetime) -> None:
+        """Refresh optional Wi-Fi and system status; never fail the poll."""
+        try:
+            self.status = await self.client.async_get_status()
+        except Exception:
+            _LOGGER.debug("Router status could not be read", exc_info=True)
+            return
+
+        summary = self.status.summary
+        if summary is None or summary.uptime_seconds is None:
+            return
+        uptime = summary.uptime_seconds
+        if self._last_uptime is not None and uptime < self._last_uptime:
+            self.hass.bus.async_fire(
+                EVENT_ROUTER_REBOOTED,
+                {
+                    "uptime_seconds": uptime,
+                    "previous_uptime_seconds": self._last_uptime,
+                },
+            )
+        self._last_uptime = uptime
+
+        boot = now - timedelta(seconds=uptime)
+        # Uptime and poll time are read separately; ignore small drift so the
+        # boot timestamp does not change on every poll.
+        if self.last_boot is None or abs(boot - self.last_boot) > _BOOT_DRIFT:
+            self.last_boot = boot
 
     def _handle_poll_failure(self, err: Exception) -> dict[str, RouterDevice]:
         """

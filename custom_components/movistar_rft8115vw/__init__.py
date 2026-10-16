@@ -54,9 +54,14 @@ async def async_setup_entry(
 
     # Register the parent before platform forwarding. Device trackers are added
     # immediately and Home Assistant requires their via_device to already exist.
+    summary = coordinator.status.summary
     dr.async_get(hass).async_get_or_create(
         config_entry_id=entry.entry_id,
-        **router_device_info(entry),
+        **router_device_info(
+            entry,
+            sw_version=summary.firmware if summary else None,
+            hw_version=summary.hardware if summary else None,
+        ),
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

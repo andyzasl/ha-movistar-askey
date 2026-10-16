@@ -79,6 +79,32 @@ Each tracker exposes the latest hostname, IPv4 address, and MAC address. A
 client remains `home` for the configured presence-grace period after it stops
 appearing in the router map.
 
+Trackers also expose `connection` (`wifi` or `ethernet`). For clients
+associated directly with the router's Wi-Fi, they add `band`, `ap_id`, `rssi`
+(dBm), `link_rate`, `wifi_standard` and `associated_seconds`. Clients connected
+through a mesh repeater appear in the device map but not in the router's
+association table, so they have no Wi-Fi details.
+
+#### Router sensors
+
+| Sensor | Notes |
+| --- | --- |
+| Wi-Fi clients 2.4 GHz / 5 GHz | Clients associated directly with the router; mesh backhaul links are excluded |
+| Last boot | Diagnostic; derived from router uptime |
+| CPU usage, Memory usage | Diagnostic; percent |
+| Channel 2.4 GHz / 5 GHz | Diagnostic; `bandwidth_mhz` attribute |
+| Last successful poll | Diagnostic; `consecutive_failures` attribute |
+
+The router device shows the firmware and hardware revision. These values come
+from the router's XML status endpoints, verified on the RTF8316VW. On routers
+without these endpoints the sensors stay empty and device tracking is not
+affected.
+
+#### Events
+
+`movistar_rft8115vw_router_rebooted` fires when router uptime goes backwards
+between two polls. Event data: `uptime_seconds`, `previous_uptime_seconds`.
+
 ## Installation with HACS
 
 Until version 2 is published as a stable release, install it as a custom HACS

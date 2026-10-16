@@ -13,6 +13,8 @@ from homeassistant.util import dt as dt_util
 from .coordinator import MovistarAskeyCoordinator
 from .device import router_identifier
 
+_CONNECTION_TYPES = {"WIFI": "wifi", "ETH": "ethernet"}
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -90,6 +92,25 @@ class MovistarAskeyDeviceTracker(
     def ip_address(self) -> str:
         """Return the latest reported IPv4 address."""
         return self._cached_device.ip
+
+    @property
+    def extra_state_attributes(self) -> dict[str, str | int | None]:
+        """Return the connection type and, for Wi-Fi clients, link details."""
+        attributes: dict[str, str | int | None] = {
+            "connection": _CONNECTION_TYPES.get(self._cached_device.interface)
+        }
+        if self._mac in self.coordinator.present and (
+            client := self.coordinator.status.wifi_clients.get(self._mac)
+        ):
+            attributes.update(
+                band=client.band,
+                ap_id=client.ap_id,
+                rssi=client.rssi,
+                link_rate=client.link_rate,
+                wifi_standard=client.standard,
+                associated_seconds=client.associated_seconds,
+            )
+        return attributes
 
     @property
     def device_info(self) -> DeviceInfo:
