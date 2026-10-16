@@ -1,4 +1,4 @@
-"""Keep per-client Wi-Fi signal sensors enabled according to the options."""
+"""Keep per-client Wi-Fi signal and IP sensors enabled according to options."""
 
 from __future__ import annotations
 
@@ -8,10 +8,10 @@ from homeassistant.core import Event, HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 
 from .const import (
+    CLIENT_SENSOR_UNIQUE_ID_SUFFIXES,
     CONF_SIGNAL_SENSORS,
     DEFAULT_SIGNAL_SENSORS,
     DOMAIN,
-    SIGNAL_SENSOR_UNIQUE_ID_SUFFIX,
     SIGNAL_SENSORS_ALL,
     SIGNAL_SENSORS_FOLLOW_TRACKER,
     SIGNAL_SENSORS_MANUAL,
@@ -76,11 +76,19 @@ def async_sync_signal_sensors(hass: HomeAssistant, entry: ConfigEntry) -> None:
         return
     registry = er.async_get(hass)
     for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
-        if entity.domain != Platform.SENSOR or not entity.unique_id.endswith(
-            SIGNAL_SENSOR_UNIQUE_ID_SUFFIX
-        ):
+        if entity.domain != Platform.SENSOR:
             continue
-        mac = entity.unique_id.removesuffix(SIGNAL_SENSOR_UNIQUE_ID_SUFFIX)
+        suffix = next(
+            (
+                s
+                for s in CLIENT_SENSOR_UNIQUE_ID_SUFFIXES
+                if entity.unique_id.endswith(s)
+            ),
+            None,
+        )
+        if suffix is None:
+            continue
+        mac = entity.unique_id.removesuffix(suffix)
         current = entity.disabled_by.value if entity.disabled_by else None
         wanted = desired_disabled_by(mode, _tracker_enabled(registry, mac), current)
         if wanted == NO_CHANGE:

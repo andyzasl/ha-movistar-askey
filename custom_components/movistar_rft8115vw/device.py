@@ -13,11 +13,31 @@ def router_identifier(entry: ConfigEntry) -> tuple[str, str]:
     return (DOMAIN, entry.unique_id or entry.entry_id)
 
 
-def client_device_info(entry: ConfigEntry, mac: str, name: str) -> DeviceInfo:
+def client_device_info(
+    entry: ConfigEntry, mac: str, name: str, model: str | None = None
+) -> DeviceInfo:
     """Return metadata for a network client, linked to the router."""
-    return DeviceInfo(
+    info = DeviceInfo(
         connections={(CONNECTION_NETWORK_MAC, mac)},
         name=name,
+        via_device=router_identifier(entry),
+    )
+    if model:
+        info["model"] = model
+    return info
+
+
+def repeater_identifier(entry: ConfigEntry) -> tuple[str, str]:
+    """Return the device-registry identifier for the mesh repeater."""
+    return (DOMAIN, f"{entry.unique_id or entry.entry_id}_repeater")
+
+
+def repeater_device_info(entry: ConfigEntry) -> DeviceInfo:
+    """Return metadata for the mesh repeater, linked to the router."""
+    return DeviceInfo(
+        identifiers={repeater_identifier(entry)},
+        name="Mesh repeater",
+        model="EasyMesh agent",
         via_device=router_identifier(entry),
     )
 

@@ -8,17 +8,30 @@ from datetime import datetime, timedelta
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
+from .clients import (
+    Attachment,
+    attachment,
+    client_model,
+    detect_roams,
+    display_name,
+    update_suffixed,
+)
 from .const import (
     DOMAIN,
+    EVENT_CLIENT_ROAMED,
     EVENT_ROUTER_REBOOTED,
     FAILURE_TOLERANCE,
     ISSUE_ROUTER_UNREACHABLE,
 )
+from .device import client_device_info, repeater_device_info, router_identifier
 from .router import (
+    NODE_REPEATER,
     CannotConnectError,
     InvalidAuthError,
     MovistarAskeyClient,
@@ -59,6 +72,8 @@ class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
         self.status = RouterStatus()
         self.last_boot: datetime | None = None
         self._last_uptime: int | None = None
+        self.suffixed: set[str] = set()
+        self._attachments: dict[str, Attachment] = {}
 
     async def _async_update_data(self) -> dict[str, RouterDevice]:
         try:
@@ -81,7 +96,89 @@ class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
             ir.async_delete_issue(self.hass, DOMAIN, ISSUE_ROUTER_UNREACHABLE)
         self.consecutive_failures = 0
         await self._async_update_status(now)
+        self.suffixed = update_suffixed(devices, self.suffixed)
+        self._detect_roams(devices)
+        self._sync_client_devices(devices)
         return devices
+
+    def client_device_info(self, mac: str) -> DeviceInfo:
+        """Return device metadata for a network client."""
+        device = (self.data or {}).get(mac)
+        if device is None:
+            return client_device_info(self.config_entry, mac, mac)
+        client = self.status.wifi_clients.get(mac)
+        return client_device_info(
+            self.config_entry,
+            mac,
+            display_name(device, self.suffixed),
+            model=client_model(device, client.band if client else None),
+        )
+
+    def _sync_client_devices(self, devices: dict[str, RouterDevice]) -> None:
+        """
+        Keep each client device's parent node, model and name current.
+
+        Entity device_info is only applied when an entity is added, so roams
+        between router and repeater are written to the device registry here.
+        """
+        registry = dr.async_get(self.hass)
+        router = registry.async_get_device(
+            identifiers={router_identifier(self.config_entry)}
+        )
+        if router is None:
+            return
+        repeater_id: str | None = None
+        if any(devices[mac].node == NODE_REPEATER for mac in self.present):
+            repeater_id = registry.async_get_or_create(
+                config_entry_id=self.config_entry.entry_id,
+                **repeater_device_info(self.config_entry),
+            ).id
+
+        for mac in self.present:
+            entry = registry.async_get_device(
+                connections={(dr.CONNECTION_NETWORK_MAC, mac)}
+            )
+            if entry is None:
+                continue
+            device = devices[mac]
+            client = self.status.wifi_clients.get(mac)
+            via = (
+                repeater_id
+                if device.node == NODE_REPEATER and repeater_id
+                else router.id
+            )
+            model = client_model(device, client.band if client else None)
+            name = display_name(device, self.suffixed)
+            if (entry.via_device_id, entry.model, entry.name) != (via, model, name):
+                registry.async_update_device(
+                    entry.id, via_device_id=via, model=model, name=name
+                )
+
+    def display_name(self, mac: str, fallback: str) -> str:
+        """Return a unique display name for a client."""
+        if (device := (self.data or {}).get(mac)) is None:
+            return fallback
+        return display_name(device, self.suffixed)
+
+    def _detect_roams(self, devices: dict[str, RouterDevice]) -> None:
+        """Fire an event for clients whose node or band changed since last poll."""
+        current = {
+            mac: attachment(device, self.status.wifi_clients.get(mac))
+            for mac, device in devices.items()
+        }
+        for mac, before, now in detect_roams(self._attachments, current):
+            self.hass.bus.async_fire(
+                EVENT_CLIENT_ROAMED,
+                {
+                    "mac": mac,
+                    "name": display_name(devices[mac], self.suffixed),
+                    "from_node": before.node,
+                    "to_node": now.node,
+                    "from_band": before.band,
+                    "to_band": now.band,
+                },
+            )
+        self._attachments = current
 
     async def _async_update_status(self, now: datetime) -> None:
         """Refresh optional Wi-Fi and system status; never fail the poll."""

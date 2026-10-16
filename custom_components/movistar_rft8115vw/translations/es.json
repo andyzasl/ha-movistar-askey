@@ -52,12 +52,12 @@
         "data": {
           "scan_interval": "Intervalo de consulta",
           "consider_home": "Periodo de gracia de presencia",
-          "signal_sensors": "Sensores de señal Wi-Fi"
+          "signal_sensors": "Sensores de cliente (señal Wi-Fi, dirección IP)"
         },
         "data_description": {
           "scan_interval": "Cada cuánto se consulta el router. Por defecto 300 segundos (5 minutos); mínimo 30.",
           "consider_home": "Cuánto tiempo sigue en casa un dispositivo tras la última detección. Nunca menor que el intervalo de consulta. Por defecto 600 segundos.",
-          "signal_sensors": "Manual: activa cada sensor tú mismo. Seguir rastreador: el sensor de señal se activa mientras su rastreador esté activado. Todos: cada cliente Wi-Fi tiene un sensor de señal activado. Los sensores que desactives tú nunca se reactivan."
+          "signal_sensors": "Manual: activa cada sensor tú mismo. Seguir rastreador: los sensores de un cliente se activan mientras su rastreador esté activado. Todos: cada cliente tiene sensores activados. Los sensores que desactives tú nunca se reactivan."
         }
       }
     }
@@ -74,7 +74,8 @@
         "state_attributes": {
           "event_type": {
             "state": {
-              "rebooted": "Reiniciado"
+              "rebooted": "Reiniciado",
+              "client_roamed": "Cliente cambió de punto de acceso"
             }
           }
         }
@@ -110,6 +111,12 @@
       },
       "signal_strength": {
         "name": "Señal Wi-Fi"
+      },
+      "ip_address": {
+        "name": "Dirección IP"
+      },
+      "wifi_clients_repeater": {
+        "name": "Dispositivos en el repetidor"
       }
     }
   },

@@ -52,12 +52,12 @@
         "data": {
           "scan_interval": "Polling interval",
           "consider_home": "Presence grace period",
-          "signal_sensors": "Wi-Fi signal sensors"
+          "signal_sensors": "Client sensors (Wi-Fi signal, IP address)"
         },
         "data_description": {
           "scan_interval": "How often the router is polled. Default 300 seconds (5 minutes); minimum 30.",
           "consider_home": "How long a client stays home after it was last seen. Never shorter than the polling interval. Default 600 seconds.",
-          "signal_sensors": "Manual: enable each sensor yourself. Follow tracker: a signal sensor is enabled while its device tracker is enabled. All: every Wi-Fi client gets an enabled signal sensor. Sensors you disabled yourself are never re-enabled."
+          "signal_sensors": "Manual: enable each sensor yourself. Follow tracker: a client's sensors are enabled while its device tracker is enabled. All: every client gets enabled sensors. Sensors you disabled yourself are never re-enabled."
         }
       }
     }
@@ -74,7 +74,8 @@
         "state_attributes": {
           "event_type": {
             "state": {
-              "rebooted": "Rebooted"
+              "rebooted": "Rebooted",
+              "client_roamed": "Client roamed"
             }
           }
         }
@@ -110,6 +111,12 @@
       },
       "signal_strength": {
         "name": "Wi-Fi signal"
+      },
+      "ip_address": {
+        "name": "IP address"
+      },
+      "wifi_clients_repeater": {
+        "name": "Devices on repeater"
       }
     }
   },

@@ -40,6 +40,12 @@
       },
       "channel_5ghz": {
         "default": "mdi:access-point"
+      },
+      "ip_address": {
+        "default": "mdi:ip-network"
+      },
+      "wifi_clients_repeater": {
+        "default": "mdi:access-point-network"
       }
     }
   }

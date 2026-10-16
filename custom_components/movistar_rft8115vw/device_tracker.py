@@ -10,8 +10,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
+from .clients import access_point_name
 from .coordinator import MovistarAskeyCoordinator
-from .device import client_device_info
 
 _CONNECTION_TYPES = {"WIFI": "wifi", "ETH": "ethernet"}
 
@@ -63,8 +63,8 @@ class MovistarAskeyDeviceTracker(
 
     @property
     def name(self) -> str:
-        """Return the latest hostname reported by the router."""
-        return self._cached_device.name
+        """Return the client name, made unique with a MAC suffix if needed."""
+        return self.coordinator.display_name(self._mac, self._cached_device.name)
 
     @property
     def is_connected(self) -> bool:
@@ -94,17 +94,22 @@ class MovistarAskeyDeviceTracker(
         return self._cached_device.ip
 
     @property
-    def extra_state_attributes(self) -> dict[str, str | int | None]:
-        """Return the connection type and, for Wi-Fi clients, link details."""
-        attributes: dict[str, str | int | None] = {
-            "connection": _CONNECTION_TYPES.get(self._cached_device.interface)
+    def extra_state_attributes(self) -> dict[str, str | int | bool | None]:
+        """Return connection, mesh node and, for router Wi-Fi, link details."""
+        device = self._cached_device
+        is_present = self._mac in self.coordinator.present
+        client = (
+            self.coordinator.status.wifi_clients.get(self._mac) if is_present else None
+        )
+        attributes: dict[str, str | int | bool | None] = {
+            "connection": _CONNECTION_TYPES.get(device.interface),
+            "node": device.node if is_present else None,
+            "access_point": access_point_name(device, client) if is_present else None,
+            "private_mac": device.is_private_mac,
         }
-        if self._mac in self.coordinator.present and (
-            client := self.coordinator.status.wifi_clients.get(self._mac)
-        ):
+        if client:
             attributes.update(
                 band=client.band,
-                access_point=client.access_point,
                 ap_id=client.ap_id,
                 rssi=client.rssi,
                 link_rate=client.link_rate,
@@ -116,6 +121,4 @@ class MovistarAskeyDeviceTracker(
     @property
     def device_info(self) -> DeviceInfo:
         """Link this client device to the router device."""
-        return client_device_info(
-            self.coordinator.config_entry, self._mac, self._cached_device.name
-        )
+        return self.coordinator.client_device_info(self._mac)

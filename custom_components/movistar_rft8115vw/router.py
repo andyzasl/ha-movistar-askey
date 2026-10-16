@@ -26,6 +26,15 @@ _LOGIN_MARKERS = ("loginPassword", "te_acceso_router")
 
 _LOGGER = logging.getLogger(__name__)
 
+# deviceData index 7: the client's attachment point. Matched against the
+# router's association table on an RTF8316VW (V2.19): 0 = router 2.4 GHz,
+# 1 = router 5 GHz, 7 = mesh repeater, -1 = offline.
+LINK_ROUTER_24GHZ = 0
+LINK_ROUTER_5GHZ = 1
+LINK_REPEATER = 7
+NODE_ROUTER = "router"
+NODE_REPEATER = "repeater"
+
 
 class MovistarAskeyError(Exception):
     """Base exception for router communication errors."""
@@ -51,6 +60,31 @@ class RouterDevice:
     ip: str
     name: str
     interface: str = ""
+    link: int | None = None
+
+    @property
+    def node(self) -> str | None:
+        """Return the mesh node a Wi-Fi client is attached to, if known."""
+        if self.interface != "WIFI" or self.link is None:
+            return None
+        if self.link == LINK_REPEATER:
+            return NODE_REPEATER
+        if self.link in (LINK_ROUTER_24GHZ, LINK_ROUTER_5GHZ):
+            return NODE_ROUTER
+        return None
+
+    @property
+    def is_private_mac(self) -> bool:
+        """Return whether the MAC address is locally administered (randomized)."""
+        return is_private_mac(self.mac)
+
+
+def is_private_mac(mac: str) -> bool:
+    """Return whether a MAC address has the locally administered bit set."""
+    try:
+        return bool(int(mac[:2], 16) & 0x02)
+    except ValueError:
+        return False
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,8 +126,18 @@ def parse_device_data(page: str) -> dict[str, RouterDevice]:
         ip = str(record[3]).strip()
         name = str(record[1]).strip() or mac
         interface = str(record[4]).strip().upper() if len(record) > 4 else ""
-        devices[mac] = RouterDevice(mac=mac, ip=ip, name=name, interface=interface)
+        link = _int_or_none(record[7]) if len(record) > 7 else None
+        devices[mac] = RouterDevice(
+            mac=mac, ip=ip, name=name, interface=interface, link=link
+        )
     return devices
+
+
+def _int_or_none(value: Any) -> int | None:
+    try:
+        return int(str(value).strip())
+    except ValueError:
+        return None
 
 
 class MovistarAskeyClient:

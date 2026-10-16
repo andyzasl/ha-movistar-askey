@@ -26,6 +26,20 @@ All notable changes to this modernization fork are documented here.
 - Raise a repair notice after three consecutive failed polls; it clears on the
   next successful poll.
 - Trackers show a readable `access_point`, such as `Router 5 GHz`.
+- Show where each client is connected: the device card's **Connected via**
+  points to the router or to a new **Mesh repeater** device, and the model
+  line shows how, for example `Wi-Fi 5 GHz · private address` or `Ethernet`.
+  Both are updated on every poll. The attachment comes from the device map's
+  link field (0 = router 2.4 GHz, 1 = router 5 GHz, 7 = repeater), verified on
+  an RTF8316VW.
+- Trackers add `node` (`router` / `repeater`) and `private_mac`.
+- Add an **IP address** sensor per client; the client sensors option now
+  covers both signal and IP sensors.
+- Add a **Devices on repeater** sensor.
+- The **Router event** entity also records `client_roamed` (bus event
+  `movistar_rft8115vw_client_roamed`) when a client changes node or band.
+- Make duplicated client names unique with a MAC suffix, for example
+  `iPhone (81:7E)`. Names set in Home Assistant are kept.
 
 - Reuse the router web session between polls and log in again only when the
   router no longer accepts it. Polling no longer displaces other router web

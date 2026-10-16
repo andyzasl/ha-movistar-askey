@@ -23,9 +23,11 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import SIGNAL_SENSOR_UNIQUE_ID_SUFFIX
+from .clients import access_point_name
+from .const import IP_SENSOR_UNIQUE_ID_SUFFIX, SIGNAL_SENSOR_UNIQUE_ID_SUFFIX
 from .coordinator import MovistarAskeyCoordinator
-from .device import client_device_info, router_device_info
+from .device import router_device_info
+from .router import NODE_REPEATER
 from .signal import signal_sensor_enabled_default
 from .status import BAND_5GHZ, BAND_24GHZ
 
@@ -121,6 +123,14 @@ SENSORS: tuple[RouterSensorDescription, ...] = (
         value_fn=_wifi_clients(BAND_5GHZ),
     ),
     RouterSensorDescription(
+        key="wifi_clients_repeater",
+        translation_key="wifi_clients_repeater",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda c: sum(
+            c.data[mac].node == NODE_REPEATER for mac in c.present if mac in c.data
+        ),
+    ),
+    RouterSensorDescription(
         key="channel_24ghz",
         translation_key="channel_24ghz",
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -148,29 +158,40 @@ async def async_setup_entry(
         RouterStatusSensor(coordinator, description) for description in SENSORS
     )
 
-    tracked: set[str] = set()
+    signal_tracked: set[str] = set()
+    ip_tracked: set[str] = set()
 
     @callback
-    def add_new_signal_sensors() -> None:
-        new_macs = [
+    def add_new_client_sensors() -> None:
+        new_signal = [
             mac
             for mac in coordinator.status.wifi_clients
-            if mac in coordinator.data and mac not in tracked
+            if mac in coordinator.data and mac not in signal_tracked
         ]
-        if not new_macs:
-            return
-        tracked.update(new_macs)
-        async_add_entities(
+        new_ip = [mac for mac in coordinator.data if mac not in ip_tracked]
+        signal_tracked.update(new_signal)
+        ip_tracked.update(new_ip)
+        entities: list[SensorEntity] = [
             ClientSignalSensor(
                 coordinator,
                 mac,
                 enabled_default=signal_sensor_enabled_default(hass, entry, mac),
             )
-            for mac in new_macs
+            for mac in new_signal
+        ]
+        entities.extend(
+            ClientIpSensor(
+                coordinator,
+                mac,
+                enabled_default=signal_sensor_enabled_default(hass, entry, mac),
+            )
+            for mac in new_ip
         )
+        if entities:
+            async_add_entities(entities)
 
-    add_new_signal_sensors()
-    entry.async_on_unload(coordinator.async_add_listener(add_new_signal_sensors))
+    add_new_client_sensors()
+    entry.async_on_unload(coordinator.async_add_listener(add_new_client_sensors))
 
 
 class RouterStatusSensor(
@@ -220,19 +241,15 @@ class RouterStatusSensor(
         return router_device_info(self.coordinator.config_entry)
 
 
-class ClientSignalSensor(
+class _ClientSensor(
     CoordinatorEntity[MovistarAskeyCoordinator],
     SensorEntity,
 ):
-    """Report the router-side signal strength of one Wi-Fi client."""
+    """Base class for sensors attached to a network client device."""
 
     _attr_has_entity_name = True
-    _attr_translation_key = "signal_strength"
-    _attr_device_class = SensorDeviceClass.SIGNAL_STRENGTH
-    _attr_native_unit_of_measurement = SIGNAL_STRENGTH_DECIBELS_MILLIWATT
-    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_entity_registry_enabled_default = False
+    _unique_id_suffix: str
 
     def __init__(
         self,
@@ -240,12 +257,26 @@ class ClientSignalSensor(
         mac: str,
         enabled_default: bool = False,
     ) -> None:
-        """Initialize a client signal sensor."""
+        """Initialize a client sensor."""
         super().__init__(coordinator)
         self._mac = mac
-        self._attr_unique_id = f"{mac}{SIGNAL_SENSOR_UNIQUE_ID_SUFFIX}"
+        self._attr_unique_id = f"{mac}{self._unique_id_suffix}"
         self._attr_entity_registry_enabled_default = enabled_default
-        self._name = coordinator.data[mac].name
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Attach the sensor to the client device."""
+        return self.coordinator.client_device_info(self._mac)
+
+
+class ClientSignalSensor(_ClientSensor):
+    """Report the router-side signal strength of one Wi-Fi client."""
+
+    _attr_translation_key = "signal_strength"
+    _attr_device_class = SensorDeviceClass.SIGNAL_STRENGTH
+    _attr_native_unit_of_measurement = SIGNAL_STRENGTH_DECIBELS_MILLIWATT
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _unique_id_suffix = SIGNAL_SENSOR_UNIQUE_ID_SUFFIX
 
     @property
     def native_value(self) -> int | None:
@@ -258,14 +289,26 @@ class ClientSignalSensor(
     @property
     def extra_state_attributes(self) -> dict[str, str | None]:
         """Return the band and access point of the current association."""
-        client = self.coordinator.status.wifi_clients.get(self._mac)
-        if client is None or self._mac not in self.coordinator.present:
+        if self._mac not in self.coordinator.present:
             return {"band": None, "access_point": None}
-        return {"band": client.band, "access_point": client.access_point}
+        client = self.coordinator.status.wifi_clients.get(self._mac)
+        device = self.coordinator.data[self._mac]
+        return {
+            "band": client.band if client else None,
+            "access_point": access_point_name(device, client),
+        }
+
+
+class ClientIpSensor(_ClientSensor):
+    """Report the IPv4 address of one network client."""
+
+    _attr_translation_key = "ip_address"
+    _unique_id_suffix = IP_SENSOR_UNIQUE_ID_SUFFIX
 
     @property
-    def device_info(self) -> DeviceInfo:
-        """Attach the sensor to the client device."""
-        if device := self.coordinator.data.get(self._mac):
-            self._name = device.name
-        return client_device_info(self.coordinator.config_entry, self._mac, self._name)
+    def native_value(self) -> str | None:
+        """Return the latest IPv4 address reported by the router."""
+        device = self.coordinator.data.get(self._mac)
+        if device is None or device.ip in ("", "0.0.0.0"):
+            return None
+        return device.ip

@@ -91,17 +91,30 @@ Each tracker exposes the latest hostname, IPv4 address, and MAC address. A
 client remains `home` for the configured presence-grace period after it stops
 appearing in the router map.
 
-Trackers also expose `connection` (`wifi` or `ethernet`). For clients
-associated directly with the router's Wi-Fi, they add `band`, `ap_id`, `rssi`
-(dBm), `link_rate`, `wifi_standard` and `associated_seconds`. Clients connected
-through a mesh repeater appear in the device map but not in the router's
-association table, so they have no Wi-Fi details.
+Trackers also expose `connection` (`wifi` or `ethernet`), `node` (`router` or
+`repeater`), `access_point` and `private_mac`. For clients associated directly
+with the router's Wi-Fi, they add `band`, `ap_id`, `rssi` (dBm), `link_rate`,
+`wifi_standard` and `associated_seconds`. Clients behind the mesh repeater are
+not in the router's association table, so they have no band or RSSI.
+
+#### Client devices
+
+Each client's device card shows where it is connected:
+
+- **Connected via** points to the router or to the **Mesh repeater** device.
+- The model line shows how, for example `Wi-Fi 5 GHz · private address` or
+  `Ethernet`. *Private address* means the device uses a randomized Wi-Fi MAC.
+
+Both are updated on every poll. Duplicated names, common for Apple devices,
+get a MAC suffix such as `iPhone (81:7E)`; renaming a device in Home Assistant
+overrides it.
 
 #### Router sensors
 
 | Sensor | Notes |
 | --- | --- |
 | Wi-Fi clients 2.4 GHz / 5 GHz | Clients associated directly with the router; mesh backhaul links are excluded |
+| Devices on repeater | Clients attached to the mesh repeater (may include the repeater itself) |
 | Last boot | Diagnostic; derived from router uptime |
 | CPU usage, Memory usage | Diagnostic; percent |
 | Channel 2.4 GHz / 5 GHz | Diagnostic; `bandwidth_mhz` attribute |
@@ -113,29 +126,34 @@ from the router's XML status endpoints, verified on the RTF8316VW. On routers
 without these endpoints the sensors stay empty and device tracking is not
 affected.
 
-#### Wi-Fi signal sensors
+#### Client sensors
 
-Each client seen on the router's Wi-Fi gets a **Wi-Fi signal** sensor (dBm),
-attached to the client device. The **Wi-Fi signal sensors** option controls
-whether they are enabled:
+Each client gets an **IP address** sensor, and each client seen on the router's
+Wi-Fi also gets a **Wi-Fi signal** sensor (dBm). Both are attached to the
+client device. The **Client sensors** option controls whether they are
+enabled:
 
 | Mode | Behavior |
 | --- | --- |
 | Manual (default) | Created disabled; enable the ones you want |
-| Follow tracker | A signal sensor is enabled while its device tracker is enabled |
-| All | Every Wi-Fi client's signal sensor is enabled |
+| Follow tracker | A client's sensors are enabled while its device tracker is enabled |
+| All | Every client's sensors are enabled |
 
 Sensors you disabled yourself are never re-enabled. After a sensor is enabled,
 Home Assistant reloads the integration about 30 seconds later to activate it.
-The value is empty while the client is away or connected through a mesh
-repeater.
+The signal value is empty while the client is away or connected through the
+mesh repeater.
 
 #### Events
 
-The **Router event** entity records `rebooted` when router uptime goes
-backwards between two polls; use it as an automation trigger. The same
-detection also fires the bus event `movistar_rft8115vw_router_rebooted` with
-`uptime_seconds` and `previous_uptime_seconds`.
+The **Router event** entity records:
+
+- `rebooted` when router uptime goes backwards between two polls (bus event
+  `movistar_rft8115vw_router_rebooted` with `uptime_seconds` and
+  `previous_uptime_seconds`);
+- `client_roamed` when a client present in two consecutive polls changes node
+  (router ⇄ repeater) or band (bus event `movistar_rft8115vw_client_roamed`
+  with `mac`, `name`, `from_node`, `to_node`, `from_band`, `to_band`).
 
 #### Repairs
 
@@ -210,7 +228,7 @@ version).
 | --- | ---: | ---: | --- |
 | Polling interval | 300 seconds | 30–3600 seconds | How often the router map is refreshed |
 | Presence grace period | 600 seconds | 0–3600 seconds | How long a missing client remains `home` |
-| Wi-Fi signal sensors | Manual | Manual, Follow tracker, All | Which per-client signal sensors are enabled |
+| Client sensors | Manual | Manual, Follow tracker, All | Which per-client signal and IP sensors are enabled |
 
 Internally, the effective presence grace period is never shorter than the
 polling interval.
