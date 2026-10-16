@@ -32,6 +32,18 @@ The integration expects the router's local web interface at an IPv4 address,
 normally `192.168.1.1`. It uses the **router web-admin password**, not the Wi-Fi
 password.
 
+### Tested firmware
+
+| Model | Hardware | Firmware | Customization | Tested |
+| --- | --- | --- | --- | --- |
+| Askey RTF8316VW | REV4 | `GL_g1.18_R8316_V2.19` | `TEF-ES` | Device map, session reuse, XML status endpoints (`cbListWifiAccPtAssociation`, `cbGetWifi`, `cbGetSummary`) |
+
+The XML status endpoints (Wi-Fi details, router sensors, reboot event) are
+verified only on the firmware above. Other firmware may name or nest fields
+differently; the related sensors then stay empty while device tracking keeps
+working. Router firmware is shown on the router device in Home Assistant;
+please include it when reporting results.
+
 ## What the integration provides
 
 - Setup and reauthentication through **Settings → Devices & services**
