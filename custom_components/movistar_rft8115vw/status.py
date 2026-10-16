@@ -15,6 +15,9 @@ RADIO_BANDS: dict[int, str] = {0: BAND_24GHZ, 1: BAND_5GHZ}
 # confirmed on an RTF8316VW; 2 and 4 follow the same sequence.
 _BANDWIDTH_MHZ: dict[str, int] = {"1": 20, "2": 40, "3": 80, "4": 160}
 
+# Access points 0 (2.4 GHz) and 1 (5 GHz) carry the main SSID on an RTF8316VW.
+_MAIN_ACCESS_POINT_IDS = frozenset({0, 1})
+
 
 @dataclass(frozen=True, slots=True)
 class WifiClient:
@@ -27,6 +30,13 @@ class WifiClient:
     link_rate: str
     standard: str
     associated_seconds: int | None
+
+    @property
+    def access_point(self) -> str:
+        """Return a readable name for the router access point."""
+        if self.ap_id is None or self.ap_id in _MAIN_ACCESS_POINT_IDS:
+            return f"Router {self.band}"
+        return f"Router {self.band} (AP {self.ap_id})"
 
 
 @dataclass(frozen=True, slots=True)

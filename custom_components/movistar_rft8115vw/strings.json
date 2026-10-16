@@ -8,6 +8,22 @@
         "data": {
           "host": "Router IP address",
           "password": "Router admin password"
+        },
+        "data_description": {
+          "host": "Usually 192.168.1.1.",
+          "password": "The router web-admin password, not the Wi-Fi password."
+        }
+      },
+      "reconfigure": {
+        "title": "Change router connection",
+        "description": "Update the router address or web-admin password.",
+        "data": {
+          "host": "Router IP address",
+          "password": "Router admin password"
+        },
+        "data_description": {
+          "host": "Usually 192.168.1.1.",
+          "password": "The router web-admin password, not the Wi-Fi password."
         }
       },
       "reauth_confirm": {
@@ -24,7 +40,9 @@
       "unknown": "Unexpected error"
     },
     "abort": {
-      "already_configured": "This router is already configured"
+      "already_configured": "This router is already configured",
+      "reauth_successful": "The router password was updated",
+      "reconfigure_successful": "The router connection was updated"
     }
   },
   "options": {
@@ -32,10 +50,71 @@
       "init": {
         "title": "Router monitoring options",
         "data": {
-          "scan_interval": "Polling interval in seconds",
-          "consider_home": "Presence grace period in seconds"
+          "scan_interval": "Polling interval",
+          "consider_home": "Presence grace period"
+        },
+        "data_description": {
+          "scan_interval": "How often the router is polled. Default 300 seconds (5 minutes); minimum 30.",
+          "consider_home": "How long a client stays home after it was last seen. Never shorter than the polling interval. Default 600 seconds."
         }
       }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "router_reachable": {
+        "name": "Router reachable"
+      }
+    },
+    "event": {
+      "router_event": {
+        "name": "Router event",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "rebooted": "Rebooted"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "connected_devices": {
+        "name": "Connected devices"
+      },
+      "last_successful_poll": {
+        "name": "Last successful poll"
+      },
+      "last_boot": {
+        "name": "Last boot"
+      },
+      "cpu_usage": {
+        "name": "CPU usage"
+      },
+      "memory_usage": {
+        "name": "Memory usage"
+      },
+      "wifi_clients_24ghz": {
+        "name": "Wi-Fi clients 2.4 GHz"
+      },
+      "wifi_clients_5ghz": {
+        "name": "Wi-Fi clients 5 GHz"
+      },
+      "channel_24ghz": {
+        "name": "Channel 2.4 GHz"
+      },
+      "channel_5ghz": {
+        "name": "Channel 5 GHz"
+      },
+      "signal_strength": {
+        "name": "Wi-Fi signal"
+      }
+    }
+  },
+  "issues": {
+    "router_unreachable": {
+      "title": "Movistar router unreachable",
+      "description": "The last {failures} polls of the router failed ({error}). Device trackers use their presence grace period until the router answers again. Check that the router is on and reachable from Home Assistant. This notice clears automatically after the next successful poll."
     }
   }
 }

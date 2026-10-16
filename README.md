@@ -106,16 +106,31 @@ association table, so they have no Wi-Fi details.
 | CPU usage, Memory usage | Diagnostic; percent |
 | Channel 2.4 GHz / 5 GHz | Diagnostic; `bandwidth_mhz` attribute |
 | Last successful poll | Diagnostic; `consecutive_failures` attribute |
+| Router reachable | Diagnostic binary sensor; `off` while polls fail |
 
 The router device shows the firmware and hardware revision. These values come
 from the router's XML status endpoints, verified on the RTF8316VW. On routers
 without these endpoints the sensors stay empty and device tracking is not
 affected.
 
+#### Wi-Fi signal sensors
+
+Each client seen on the router's Wi-Fi gets a **Wi-Fi signal** sensor (dBm),
+attached to the client device and **disabled by default**. Enable it for the
+devices you want to graph. The value is empty while the client is away or
+connected through a mesh repeater.
+
 #### Events
 
-`movistar_rft8115vw_router_rebooted` fires when router uptime goes backwards
-between two polls. Event data: `uptime_seconds`, `previous_uptime_seconds`.
+The **Router event** entity records `rebooted` when router uptime goes
+backwards between two polls; use it as an automation trigger. The same
+detection also fires the bus event `movistar_rft8115vw_router_rebooted` with
+`uptime_seconds` and `previous_uptime_seconds`.
+
+#### Repairs
+
+After three consecutive failed polls, a notice appears under **Settings →
+Repairs**. It clears automatically after the next successful poll.
 
 ## Installation with HACS
 
@@ -188,6 +203,9 @@ version).
 
 Internally, the effective presence grace period is never shorter than the
 polling interval.
+
+To change the router address or password, use **⋮ → Reconfigure** on the same
+entry row. Existing entities are kept.
 
 ## Troubleshooting
 

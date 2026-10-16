@@ -12,6 +12,18 @@ All notable changes to this modernization fork are documented here.
   "Migration handler not found" and did not load the entry.
 - Add Wi-Fi, radio and router summary data to diagnostics, without client
   identifiers.
+- Options form: number fields in seconds with help text.
+- Add **Reconfigure** to change the router address or password without
+  removing the integration.
+- Translate entity names (English and Spanish) and move icons to
+  `icons.json`. Existing entity IDs are unchanged.
+- Add a **Wi-Fi signal** sensor per Wi-Fi client (dBm, disabled by default)
+  for history graphs, with `band` and `access_point` attributes.
+- Add a **Router reachable** connectivity sensor.
+- Add a **Router event** entity that records reboots; the bus event is kept.
+- Raise a repair notice after three consecutive failed polls; it clears on the
+  next successful poll.
+- Trackers show a readable `access_point`, such as `Router 5 GHz`.
 
 - Reuse the router web session between polls and log in again only when the
   router no longer accepts it. Polling no longer displaces other router web

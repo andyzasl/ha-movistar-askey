@@ -95,6 +95,20 @@ def test_parse_summary() -> None:
     assert summary.hardware == "REV4"
 
 
+def test_access_point_names() -> None:
+    """Main access points get a short name; others include their id."""
+    clients = parse_associations(ASSOCIATIONS, BAND_5GHZ)
+
+    assert clients["AA:BB:CC:DD:EE:01"].access_point == "Router 5 GHz"
+    other = parse_associations(
+        ASSOCIATIONS.replace(
+            ">1</dpm_cfg_wifi_acc_pt_id>", ">3</dpm_cfg_wifi_acc_pt_id>"
+        ),
+        BAND_5GHZ,
+    )
+    assert other["AA:BB:CC:DD:EE:01"].access_point == "Router 5 GHz (AP 3)"
+
+
 def test_failed_result_and_login_page_yield_no_data() -> None:
     """A non-zero Result or a non-XML login page is treated as no data."""
     assert parse_summary("<cbGetSummary><Result>4</Result></cbGetSummary>") is None

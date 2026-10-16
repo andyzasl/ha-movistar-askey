@@ -10,12 +10,15 @@ from homeassistant.const import CONF_HOST, CONF_PASSWORD, Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import issue_registry as ir
 
 from .const import (
     CONF_CONSIDER_HOME,
     CONF_SCAN_INTERVAL,
     DEFAULT_CONSIDER_HOME,
     DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    ISSUE_ROUTER_UNREACHABLE,
 )
 from .coordinator import MovistarAskeyCoordinator
 from .device import router_device_info
@@ -24,7 +27,12 @@ from .router import MovistarAskeyClient
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: tuple[Platform, ...] = (Platform.DEVICE_TRACKER, Platform.SENSOR)
+PLATFORMS: tuple[Platform, ...] = (
+    Platform.BINARY_SENSOR,
+    Platform.DEVICE_TRACKER,
+    Platform.EVENT,
+    Platform.SENSOR,
+)
 
 type MovistarAskeyConfigEntry = ConfigEntry[MovistarAskeyCoordinator]
 
@@ -119,4 +127,5 @@ async def async_unload_entry(
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         await coordinator.client.async_close()
+        ir.async_delete_issue(hass, DOMAIN, ISSUE_ROUTER_UNREACHABLE)
     return unloaded

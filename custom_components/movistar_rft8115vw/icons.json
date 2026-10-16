@@ -1,0 +1,46 @@
+{
+  "entity": {
+    "binary_sensor": {
+      "router_reachable": {
+        "default": "mdi:router-network",
+        "state": {
+          "off": "mdi:router-network-wireless"
+        }
+      }
+    },
+    "event": {
+      "router_event": {
+        "default": "mdi:restart"
+      }
+    },
+    "sensor": {
+      "connected_devices": {
+        "default": "mdi:devices"
+      },
+      "last_successful_poll": {
+        "default": "mdi:clock-check-outline"
+      },
+      "last_boot": {
+        "default": "mdi:restart"
+      },
+      "cpu_usage": {
+        "default": "mdi:cpu-64-bit"
+      },
+      "memory_usage": {
+        "default": "mdi:memory"
+      },
+      "wifi_clients_24ghz": {
+        "default": "mdi:wifi"
+      },
+      "wifi_clients_5ghz": {
+        "default": "mdi:wifi"
+      },
+      "channel_24ghz": {
+        "default": "mdi:access-point"
+      },
+      "channel_5ghz": {
+        "default": "mdi:access-point"
+      }
+    }
+  }
+}

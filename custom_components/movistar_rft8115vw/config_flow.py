@@ -9,6 +9,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_HOST, CONF_PASSWORD
 from homeassistant.core import callback
+from homeassistant.helpers import selector
 
 from .const import (
     CONF_CONSIDER_HOME,
@@ -33,16 +34,26 @@ def _user_schema(values: dict[str, Any] | None = None) -> vol.Schema:
     )
 
 
+def _seconds_selector(minimum: int) -> selector.NumberSelector:
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=minimum,
+            max=MAX_SCAN_INTERVAL,
+            step=1,
+            unit_of_measurement="s",
+            mode=selector.NumberSelectorMode.BOX,
+        )
+    )
+
+
 OPTIONS_SCHEMA = vol.Schema(
     {
-        vol.Required(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(
-            int,
-            vol.Range(min=MIN_SCAN_INTERVAL, max=MAX_SCAN_INTERVAL),
-        ),
-        vol.Required(CONF_CONSIDER_HOME, default=DEFAULT_CONSIDER_HOME): vol.All(
-            int,
-            vol.Range(min=0, max=MAX_SCAN_INTERVAL),
-        ),
+        vol.Required(
+            CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
+        ): _seconds_selector(MIN_SCAN_INTERVAL),
+        vol.Required(
+            CONF_CONSIDER_HOME, default=DEFAULT_CONSIDER_HOME
+        ): _seconds_selector(0),
     }
 )
 
@@ -126,6 +137,36 @@ class MovistarAskeyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             },
         )
 
+    async def async_step_reconfigure(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Change the router address or password of an existing entry."""
+        entry = self._get_reconfigure_entry()
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip()
+            try:
+                await _async_validate(host, user_input[CONF_PASSWORD])
+            except CannotConnectError:
+                errors["base"] = "cannot_connect"
+            except InvalidAuthError:
+                errors["base"] = "invalid_auth"
+            except Exception:
+                errors["base"] = "unknown"
+            else:
+                return self.async_update_reload_and_abort(
+                    entry,
+                    unique_id=host,
+                    title=f"Movistar Askey Router ({host})",
+                    data={CONF_HOST: host, CONF_PASSWORD: user_input[CONF_PASSWORD]},
+                )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=_user_schema(user_input or {CONF_HOST: entry.data[CONF_HOST]}),
+            errors=errors,
+        )
+
     async def async_step_reauth(
         self,
         entry_data: dict[str, Any],
@@ -169,7 +210,9 @@ class MovistarAskeyOptionsFlow(config_entries.OptionsFlow):
     ) -> config_entries.ConfigFlowResult:
         """Display and store polling and presence options."""
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            return self.async_create_entry(
+                data={key: int(value) for key, value in user_input.items()}
+            )
         schema = self.add_suggested_values_to_schema(
             OPTIONS_SCHEMA,
             {

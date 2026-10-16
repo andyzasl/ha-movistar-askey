@@ -8,10 +8,16 @@ from datetime import datetime, timedelta
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, EVENT_ROUTER_REBOOTED, FAILURE_TOLERANCE
+from .const import (
+    DOMAIN,
+    EVENT_ROUTER_REBOOTED,
+    FAILURE_TOLERANCE,
+    ISSUE_ROUTER_UNREACHABLE,
+)
 from .router import (
     CannotConnectError,
     InvalidAuthError,
@@ -71,6 +77,8 @@ class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
             self.last_seen[mac] = now
         self.present = frozenset(devices)
         self.last_successful_poll = now
+        if self.consecutive_failures >= FAILURE_TOLERANCE:
+            ir.async_delete_issue(self.hass, DOMAIN, ISSUE_ROUTER_UNREACHABLE)
         self.consecutive_failures = 0
         await self._async_update_status(now)
         return devices
@@ -114,6 +122,18 @@ class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
         self.consecutive_failures += 1
         self.present = frozenset()
         if self.consecutive_failures >= FAILURE_TOLERANCE:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                ISSUE_ROUTER_UNREACHABLE,
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key=ISSUE_ROUTER_UNREACHABLE,
+                translation_placeholders={
+                    "failures": str(self.consecutive_failures),
+                    "error": str(err),
+                },
+            )
             raise UpdateFailed(
                 f"Router poll failed {self.consecutive_failures} times in a row: {err}"
             ) from err

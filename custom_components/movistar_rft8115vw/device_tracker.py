@@ -5,13 +5,13 @@ from __future__ import annotations
 from homeassistant.components.device_tracker import ScannerEntity, SourceType
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from .coordinator import MovistarAskeyCoordinator
-from .device import router_identifier
+from .device import client_device_info
 
 _CONNECTION_TYPES = {"WIFI": "wifi", "ETH": "ethernet"}
 
@@ -104,6 +104,7 @@ class MovistarAskeyDeviceTracker(
         ):
             attributes.update(
                 band=client.band,
+                access_point=client.access_point,
                 ap_id=client.ap_id,
                 rssi=client.rssi,
                 link_rate=client.link_rate,
@@ -115,8 +116,6 @@ class MovistarAskeyDeviceTracker(
     @property
     def device_info(self) -> DeviceInfo:
         """Link this client device to the router device."""
-        return DeviceInfo(
-            connections={(CONNECTION_NETWORK_MAC, self._mac)},
-            name=self._cached_device.name,
-            via_device=router_identifier(self.coordinator.config_entry),
+        return client_device_info(
+            self.coordinator.config_entry, self._mac, self._cached_device.name
         )

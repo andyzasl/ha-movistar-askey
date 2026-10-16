@@ -13,14 +13,18 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, EntityCategory
-from homeassistant.core import HomeAssistant
+from homeassistant.const import (
+    PERCENTAGE,
+    SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+    EntityCategory,
+)
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .coordinator import MovistarAskeyCoordinator
-from .device import router_device_info
+from .device import client_device_info, router_device_info
 from .status import BAND_5GHZ, BAND_24GHZ
 
 
@@ -66,15 +70,29 @@ def _bandwidth(
 
 SENSORS: tuple[RouterSensorDescription, ...] = (
     RouterSensorDescription(
+        key="connected_devices",
+        translation_key="connected_devices",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda c: len(c.data),
+    ),
+    RouterSensorDescription(
+        key="last_successful_poll",
+        translation_key="last_successful_poll",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: c.last_successful_poll,
+        attributes_fn=lambda c: {"consecutive_failures": c.consecutive_failures},
+    ),
+    RouterSensorDescription(
         key="last_boot",
-        name="Last boot",
+        translation_key="last_boot",
         device_class=SensorDeviceClass.TIMESTAMP,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda c: c.last_boot,
     ),
     RouterSensorDescription(
         key="cpu_usage",
-        name="CPU usage",
+        translation_key="cpu_usage",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -82,7 +100,7 @@ SENSORS: tuple[RouterSensorDescription, ...] = (
     ),
     RouterSensorDescription(
         key="memory_usage",
-        name="Memory usage",
+        translation_key="memory_usage",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -90,30 +108,26 @@ SENSORS: tuple[RouterSensorDescription, ...] = (
     ),
     RouterSensorDescription(
         key="wifi_clients_24ghz",
-        name="Wi-Fi clients 2.4 GHz",
-        icon="mdi:wifi",
+        translation_key="wifi_clients_24ghz",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_wifi_clients(BAND_24GHZ),
     ),
     RouterSensorDescription(
         key="wifi_clients_5ghz",
-        name="Wi-Fi clients 5 GHz",
-        icon="mdi:wifi",
+        translation_key="wifi_clients_5ghz",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_wifi_clients(BAND_5GHZ),
     ),
     RouterSensorDescription(
         key="channel_24ghz",
-        name="Channel 2.4 GHz",
-        icon="mdi:access-point",
+        translation_key="channel_24ghz",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_channel(BAND_24GHZ),
         attributes_fn=_bandwidth(BAND_24GHZ),
     ),
     RouterSensorDescription(
         key="channel_5ghz",
-        name="Channel 5 GHz",
-        icon="mdi:access-point",
+        translation_key="channel_5ghz",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=_channel(BAND_5GHZ),
         attributes_fn=_bandwidth(BAND_5GHZ),
@@ -126,22 +140,35 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up router sensors."""
+    """Set up router sensors and per-client signal sensors."""
     coordinator: MovistarAskeyCoordinator = entry.runtime_data
     async_add_entities(
-        [
-            ConnectedDevicesSensor(coordinator),
-            LastSuccessfulPollSensor(coordinator),
-            *(RouterStatusSensor(coordinator, description) for description in SENSORS),
-        ]
+        RouterStatusSensor(coordinator, description) for description in SENSORS
     )
+
+    tracked: set[str] = set()
+
+    @callback
+    def add_new_signal_sensors() -> None:
+        new_macs = [
+            mac
+            for mac in coordinator.status.wifi_clients
+            if mac in coordinator.data and mac not in tracked
+        ]
+        if not new_macs:
+            return
+        tracked.update(new_macs)
+        async_add_entities(ClientSignalSensor(coordinator, mac) for mac in new_macs)
+
+    add_new_signal_sensors()
+    entry.async_on_unload(coordinator.async_add_listener(add_new_signal_sensors))
 
 
 class RouterStatusSensor(
     CoordinatorEntity[MovistarAskeyCoordinator],
     SensorEntity,
 ):
-    """Expose one value from the router's optional status data."""
+    """Expose one value from the router's status data."""
 
     _attr_has_entity_name = True
     entity_description: RouterSensorDescription
@@ -162,8 +189,18 @@ class RouterStatusSensor(
         return self.entity_description.value_fn(self.coordinator)
 
     @property
-    def extra_state_attributes(self) -> dict[str, int | None] | None:
+    def extra_state_attributes(self) -> dict[str, object] | None:
         """Return optional attributes for this sensor."""
+        if self.entity_description.key == "connected_devices":
+            return {
+                "devices": [
+                    {"name": device.name, "ip": device.ip, "mac": device.mac}
+                    for device in sorted(
+                        self.coordinator.data.values(),
+                        key=lambda item: item.name.casefold(),
+                    )
+                ]
+            }
         if self.entity_description.attributes_fn is None:
             return None
         return self.entity_description.attributes_fn(self.coordinator)
@@ -174,75 +211,46 @@ class RouterStatusSensor(
         return router_device_info(self.coordinator.config_entry)
 
 
-class ConnectedDevicesSensor(
+class ClientSignalSensor(
     CoordinatorEntity[MovistarAskeyCoordinator],
     SensorEntity,
 ):
-    """Report the connected-device count and a current inventory attribute."""
+    """Report the router-side signal strength of one Wi-Fi client."""
 
     _attr_has_entity_name = True
-    _attr_icon = "mdi:devices"
-    _attr_name = "Connected devices"
+    _attr_translation_key = "signal_strength"
+    _attr_device_class = SensorDeviceClass.SIGNAL_STRENGTH
+    _attr_native_unit_of_measurement = SIGNAL_STRENGTH_DECIBELS_MILLIWATT
     _attr_state_class = SensorStateClass.MEASUREMENT
-
-    def __init__(self, coordinator: MovistarAskeyCoordinator) -> None:
-        """Initialize the router's connected-device count."""
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.config_entry.unique_id}_connected_devices"
-
-    @property
-    def native_value(self) -> int:
-        """Return the number of clients in the latest successful poll."""
-        return len(self.coordinator.data)
-
-    @property
-    def extra_state_attributes(self) -> dict[str, list[dict[str, str]]]:
-        """Return the current inventory for dashboard and automation use."""
-        return {
-            "devices": [
-                {"name": device.name, "ip": device.ip, "mac": device.mac}
-                for device in sorted(
-                    self.coordinator.data.values(),
-                    key=lambda item: item.name.casefold(),
-                )
-            ]
-        }
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return metadata for the parent router device."""
-        return router_device_info(self.coordinator.config_entry)
-
-
-class LastSuccessfulPollSensor(
-    CoordinatorEntity[MovistarAskeyCoordinator],
-    SensorEntity,
-):
-    """Report when the router last answered a poll successfully."""
-
-    _attr_has_entity_name = True
-    _attr_name = "Last successful poll"
-    _attr_device_class = SensorDeviceClass.TIMESTAMP
     _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
 
-    def __init__(self, coordinator: MovistarAskeyCoordinator) -> None:
-        """Initialize the router's last-successful-poll timestamp."""
+    def __init__(self, coordinator: MovistarAskeyCoordinator, mac: str) -> None:
+        """Initialize a disabled-by-default client signal sensor."""
         super().__init__(coordinator)
-        self._attr_unique_id = (
-            f"{coordinator.config_entry.unique_id}_last_successful_poll"
-        )
+        self._mac = mac
+        self._attr_unique_id = f"{mac}_signal_strength"
+        self._name = coordinator.data[mac].name
 
     @property
-    def native_value(self) -> datetime | None:
-        """Return the time of the latest successful router poll."""
-        return self.coordinator.last_successful_poll
+    def native_value(self) -> int | None:
+        """Return RSSI while the client is associated with the router."""
+        if self._mac not in self.coordinator.present:
+            return None
+        client = self.coordinator.status.wifi_clients.get(self._mac)
+        return client.rssi if client else None
 
     @property
-    def extra_state_attributes(self) -> dict[str, int]:
-        """Return the current run of failed polls."""
-        return {"consecutive_failures": self.coordinator.consecutive_failures}
+    def extra_state_attributes(self) -> dict[str, str | None]:
+        """Return the band and access point of the current association."""
+        client = self.coordinator.status.wifi_clients.get(self._mac)
+        if client is None or self._mac not in self.coordinator.present:
+            return {"band": None, "access_point": None}
+        return {"band": client.band, "access_point": client.access_point}
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Return metadata for the parent router device."""
-        return router_device_info(self.coordinator.config_entry)
+        """Attach the sensor to the client device."""
+        if device := self.coordinator.data.get(self._mac):
+            self._name = device.name
+        return client_device_info(self.coordinator.config_entry, self._mac, self._name)

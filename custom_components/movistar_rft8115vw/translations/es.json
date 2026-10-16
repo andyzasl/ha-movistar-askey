@@ -8,6 +8,22 @@
         "data": {
           "host": "Dirección IP del router",
           "password": "Contraseña de administración"
+        },
+        "data_description": {
+          "host": "Normalmente 192.168.1.1.",
+          "password": "La contraseña de administración web del router, no la del Wi-Fi."
+        }
+      },
+      "reconfigure": {
+        "title": "Cambiar la conexión con el router",
+        "description": "Actualiza la dirección o la contraseña de administración del router.",
+        "data": {
+          "host": "Dirección IP del router",
+          "password": "Contraseña de administración"
+        },
+        "data_description": {
+          "host": "Normalmente 192.168.1.1.",
+          "password": "La contraseña de administración web del router, no la del Wi-Fi."
         }
       },
       "reauth_confirm": {
@@ -24,7 +40,9 @@
       "unknown": "Error inesperado"
     },
     "abort": {
-      "already_configured": "Este router ya está configurado"
+      "already_configured": "Este router ya está configurado",
+      "reauth_successful": "Se actualizó la contraseña del router",
+      "reconfigure_successful": "Se actualizó la conexión con el router"
     }
   },
   "options": {
@@ -32,10 +50,71 @@
       "init": {
         "title": "Opciones de monitorización",
         "data": {
-          "scan_interval": "Intervalo de consulta en segundos",
-          "consider_home": "Periodo de gracia de presencia en segundos"
+          "scan_interval": "Intervalo de consulta",
+          "consider_home": "Periodo de gracia de presencia"
+        },
+        "data_description": {
+          "scan_interval": "Cada cuánto se consulta el router. Por defecto 300 segundos (5 minutos); mínimo 30.",
+          "consider_home": "Cuánto tiempo sigue en casa un dispositivo tras la última detección. Nunca menor que el intervalo de consulta. Por defecto 600 segundos."
         }
       }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "router_reachable": {
+        "name": "Router accesible"
+      }
+    },
+    "event": {
+      "router_event": {
+        "name": "Evento del router",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "rebooted": "Reiniciado"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "connected_devices": {
+        "name": "Dispositivos conectados"
+      },
+      "last_successful_poll": {
+        "name": "Última consulta correcta"
+      },
+      "last_boot": {
+        "name": "Último arranque"
+      },
+      "cpu_usage": {
+        "name": "Uso de CPU"
+      },
+      "memory_usage": {
+        "name": "Uso de memoria"
+      },
+      "wifi_clients_24ghz": {
+        "name": "Clientes Wi-Fi 2,4 GHz"
+      },
+      "wifi_clients_5ghz": {
+        "name": "Clientes Wi-Fi 5 GHz"
+      },
+      "channel_24ghz": {
+        "name": "Canal 2,4 GHz"
+      },
+      "channel_5ghz": {
+        "name": "Canal 5 GHz"
+      },
+      "signal_strength": {
+        "name": "Señal Wi-Fi"
+      }
+    }
+  },
+  "issues": {
+    "router_unreachable": {
+      "title": "Router Movistar no accesible",
+      "description": "Las últimas {failures} consultas al router fallaron ({error}). Los dispositivos rastreados usan su periodo de gracia hasta que el router vuelva a responder. Comprueba que el router está encendido y accesible desde Home Assistant. Este aviso desaparece tras la siguiente consulta correcta."
     }
   }
 }
