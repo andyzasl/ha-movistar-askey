@@ -10,7 +10,9 @@ It includes all changes from 2.0.0-beta.4 to 2.0.0-beta.6 below, and:
 
 - Point documentation, issue tracker and code owner to the new repository.
 - Releases run the full validation (Ruff, pytest, hassfest, HACS) and check
-  that the tag matches the manifest version before publishing.
+  that the tag matches the manifest version and is on `main` before
+  publishing.
+- `main` holds released code only; development happens on `dev`.
 
 Upgrading: remove the previous HACS repository (`jardenberg/ha-movistar-askey`
 or `luis-garza/movistar_rft8115vw`), add this one, install, and restart. The

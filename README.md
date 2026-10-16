@@ -386,9 +386,27 @@ firmware without committing passwords or a real client inventory.
 
 To publish a release, bump `version` in `manifest.json`, add a matching
 `## <version>` section to [CHANGELOG.md](CHANGELOG.md), and push a tag with the
-same name (for example `2.0.0-beta.5`). The release workflow creates the GitHub
+same name (for example `2.1.0`). The release workflow creates the GitHub
 release with that changelog section as its notes; tags containing `-` are
 marked as pre-releases.
+
+### Branches
+
+- `main` holds released, stable code only. Every release tag points to a
+  commit on `main`; the release workflow refuses tags that are not on `main`.
+- `dev` is the development branch. Changes go to `dev` (directly or through
+  pull requests), and reach `main` through a pull request once validation
+  passes.
+- HACS installs releases, not branches, so users only receive code that was
+  merged to `main` and tagged.
+
+Release steps:
+
+1. On `dev`: bump `version` in `manifest.json` and add the `## <version>`
+   section to `CHANGELOG.md`.
+2. Open a pull request from `dev` to `main`; merge it when the **Validate**
+   checks pass.
+3. Tag the merge commit on `main` with the version and push the tag.
 
 ## Release status
 
