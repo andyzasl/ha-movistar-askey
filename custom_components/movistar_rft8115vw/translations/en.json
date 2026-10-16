@@ -52,7 +52,7 @@
         "data": {
           "scan_interval": "Polling interval",
           "consider_home": "Presence grace period",
-          "signal_sensors": "Client sensors (Wi-Fi signal, IP address, person)"
+          "signal_sensors": "Client sensors (Wi-Fi signal, IP address, person, roams)"
         },
         "data_description": {
           "scan_interval": "How often the router is polled. Default 300 seconds (5 minutes); minimum 30.",
@@ -120,6 +120,12 @@
       },
       "person": {
         "name": "Person"
+      },
+      "roams": {
+        "name": "Roams"
+      },
+      "client_roams": {
+        "name": "Client roams"
       }
     }
   },

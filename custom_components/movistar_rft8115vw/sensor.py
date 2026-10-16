@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from homeassistant.components.sensor import (
+    RestoreSensor,
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
@@ -28,6 +29,7 @@ from .clients import access_point_name
 from .const import (
     IP_SENSOR_UNIQUE_ID_SUFFIX,
     PERSON_SENSOR_UNIQUE_ID_SUFFIX,
+    ROAM_SENSOR_UNIQUE_ID_SUFFIX,
     SIGNAL_SENSOR_UNIQUE_ID_SUFFIX,
 )
 from .coordinator import MovistarAskeyCoordinator
@@ -160,7 +162,10 @@ async def async_setup_entry(
     """Set up router sensors and per-client signal sensors."""
     coordinator: MovistarAskeyCoordinator = entry.runtime_data
     async_add_entities(
-        RouterStatusSensor(coordinator, description) for description in SENSORS
+        [
+            *(RouterStatusSensor(coordinator, d) for d in SENSORS),
+            RouterRoamSensor(coordinator),
+        ]
     )
 
     signal_tracked: set[str] = set()
@@ -191,7 +196,7 @@ async def async_setup_entry(
                 enabled_default=signal_sensor_enabled_default(hass, entry, mac),
             )
             for mac in new_ip
-            for sensor_class in (ClientIpSensor, ClientPersonSensor)
+            for sensor_class in (ClientIpSensor, ClientPersonSensor, ClientRoamSensor)
         )
         if entities:
             async_add_entities(entities)
@@ -328,6 +333,60 @@ class ClientPersonSensor(_ClientSensor):
     def native_value(self) -> str | None:
         """Return the person names, or None when no person uses the tracker."""
         return ", ".join(self.coordinator.person_names(self._mac)) or None
+
+
+class ClientRoamSensor(_ClientSensor, RestoreSensor):
+    """Count roams of one client between router and repeater or bands."""
+
+    _attr_translation_key = "roams"
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _unique_id_suffix = ROAM_SENSOR_UNIQUE_ID_SUFFIX
+
+    async def async_added_to_hass(self) -> None:
+        """Restore the count after a restart."""
+        await super().async_added_to_hass()
+        if (last := await self.async_get_last_sensor_data()) is not None:
+            restored = int(last.native_value or 0)
+            counts = self.coordinator.roam_counts
+            counts[self._mac] = max(counts.get(self._mac, 0), restored)
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of roams detected for this client."""
+        return self.coordinator.roam_counts.get(self._mac, 0)
+
+
+class RouterRoamSensor(
+    CoordinatorEntity[MovistarAskeyCoordinator],
+    RestoreSensor,
+):
+    """Count roams of all clients."""
+
+    _attr_has_entity_name = True
+    _attr_translation_key = "client_roams"
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+
+    def __init__(self, coordinator: MovistarAskeyCoordinator) -> None:
+        """Initialize the total roam counter."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.config_entry.unique_id}_client_roams"
+
+    async def async_added_to_hass(self) -> None:
+        """Restore the count after a restart."""
+        await super().async_added_to_hass()
+        if (last := await self.async_get_last_sensor_data()) is not None:
+            restored = int(last.native_value or 0)
+            self.coordinator.total_roams = max(self.coordinator.total_roams, restored)
+
+    @property
+    def native_value(self) -> int:
+        """Return the number of roams detected for all clients."""
+        return self.coordinator.total_roams
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return metadata for the parent router device."""
+        return router_device_info(self.coordinator.config_entry)
 
 
 class ClientIpSensor(_ClientSensor):

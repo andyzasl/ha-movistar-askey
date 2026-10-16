@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## 2.2.0
+
+- Roam events name the client in the logbook (for example `iPhone (F0:06)
+  roamed router 5 GHz → repeater`) and link to the client device, so they
+  appear in its Activity. Event data adds `device_id`, `message` and
+  `roam_count`.
+- Add a **Roams** counter per client and a **Client roams** total on the
+  router; both survive restarts.
+- Add device list and router screenshots to the README.
+- Releases are automatic: merging a bumped manifest version to `main` creates
+  the tag and publishes the release; no manual tagging.
+
 ## 2.1.0
 
 First release maintained independently at

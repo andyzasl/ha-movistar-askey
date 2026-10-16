@@ -49,6 +49,12 @@
       },
       "person": {
         "default": "mdi:account"
+      },
+      "roams": {
+        "default": "mdi:swap-horizontal"
+      },
+      "client_roams": {
+        "default": "mdi:swap-horizontal"
       }
     }
   }

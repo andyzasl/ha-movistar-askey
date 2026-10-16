@@ -10,6 +10,8 @@ trackers, per-client Wi-Fi details (band, signal, router or mesh repeater),
 router health sensors, and reboot and roaming events—without using a Movistar
 cloud service.
 
+![Devices in Home Assistant, each showing whether it is connected to the router or the mesh repeater, and over which band](https://raw.githubusercontent.com/andyzasl/ha-movistar-askey/main/docs/images/movistar-devices.png)
+
 This project started as a fork of
 [`jardenberg/ha-movistar-askey`](https://github.com/jardenberg/ha-movistar-askey),
 itself a modernization of
@@ -122,16 +124,19 @@ Each client's device card shows where it is connected:
   private address`, `Repeater · Wi-Fi` or `Ethernet`. *Private address* means
   the device uses a randomized Wi-Fi MAC.
 
-Both are updated on every poll. Duplicated names, common for Apple devices,
-get a MAC suffix such as `iPhone (81:7E)`; renaming a device in Home Assistant
-overrides it.
+Both are updated on every poll (see the screenshot at the top). Duplicated
+names, common for Apple devices, get a MAC suffix such as `iPhone (81:7E)`;
+renaming a device in Home Assistant overrides it.
 
 #### Router sensors
+
+![Router device page with firmware, connected and repeater device counts, Wi-Fi clients per band, router events and diagnostic sensors](https://raw.githubusercontent.com/andyzasl/ha-movistar-askey/main/docs/images/movistar-router.png)
 
 | Sensor | Notes |
 | --- | --- |
 | Wi-Fi clients 2.4 GHz / 5 GHz | Clients associated directly with the router; mesh backhaul links are excluded |
 | Devices on repeater | Clients attached to the mesh repeater (may include the repeater itself) |
+| Client roams | Total roams of all clients since installation; survives restarts |
 | Last boot | Diagnostic; derived from router uptime |
 | CPU usage, Memory usage | Diagnostic; percent |
 | Channel 2.4 GHz / 5 GHz | Diagnostic; `bandwidth_mhz` attribute |
@@ -145,10 +150,10 @@ affected.
 
 #### Client sensors
 
-Each client gets an **IP address** and a **Person** sensor (the persons using
-its tracker), and each client seen on the router's Wi-Fi also gets a **Wi-Fi
-signal** sensor (dBm). All are attached to the client device. The **Client
-sensors** option controls whether they are enabled:
+Each client gets an **IP address**, a **Person** (the persons using its
+tracker) and a **Roams** sensor, and each client seen on the router's Wi-Fi
+also gets a **Wi-Fi signal** sensor (dBm). All are attached to the client
+device. The **Client sensors** option controls whether they are enabled:
 
 | Mode | Behavior |
 | --- | --- |
@@ -170,7 +175,14 @@ The **Router event** entity records:
   `previous_uptime_seconds`);
 - `client_roamed` when a client present in two consecutive polls changes node
   (router ⇄ repeater) or band (bus event `movistar_rft8115vw_client_roamed`
-  with `mac`, `name`, `from_node`, `to_node`, `from_band`, `to_band`).
+  with `mac`, `name`, `device_id`, `from_node`, `to_node`, `from_band`,
+  `to_band`, `message` and `roam_count`).
+
+The logbook names the client, for example `iPhone (F0:06) roamed router 5 GHz →
+repeater`, and the entry also appears in that client's device **Activity**.
+Roams are counted per client (**Roams** sensor) and in total (**Client roams**
+on the router). Both counters survive restarts; use Home Assistant statistics
+or a utility meter for roams per hour or day.
 
 Example: notify when a client moves between router and repeater.
 
@@ -270,7 +282,7 @@ version).
 | --- | ---: | ---: | --- |
 | Polling interval | 300 seconds | 30–3600 seconds | How often the router is polled |
 | Presence grace period | 600 seconds | 0–3600 seconds | How long a missing client remains `home` |
-| Client sensors | Manual | Manual, Follow tracker, All | Which per-client IP address, Wi-Fi signal and person sensors are enabled |
+| Client sensors | Manual | Manual, Follow tracker, All | Which per-client IP address, Wi-Fi signal, person and roam sensors are enabled |
 
 Internally, the effective presence grace period is never shorter than the
 polling interval. Saving options reloads the integration once.
@@ -384,29 +396,31 @@ The router parser has no cloud dependency. When changing authentication logic,
 add a regression fixture that reflects the HTML returned by the relevant router
 firmware without committing passwords or a real client inventory.
 
-To publish a release, bump `version` in `manifest.json`, add a matching
-`## <version>` section to [CHANGELOG.md](CHANGELOG.md), and push a tag with the
-same name (for example `2.1.0`). The release workflow creates the GitHub
-release with that changelog section as its notes; tags containing `-` are
-marked as pre-releases.
-
 ### Branches
 
-- `main` holds released, stable code only. Every release tag points to a
-  commit on `main`; the release workflow refuses tags that are not on `main`.
+- `main` holds released, stable code only.
 - `dev` is the development branch. Changes go to `dev` (directly or through
   pull requests), and reach `main` through a pull request once validation
   passes.
 - HACS installs releases, not branches, so users only receive code that was
-  merged to `main` and tagged.
+  merged to `main` and released.
+
+### Releases
+
+Releases are automatic. On every push to `main`, the release workflow runs the
+full validation, reads `version` from `manifest.json`, and, if that version has
+no release yet, creates the tag on the merged commit and publishes the GitHub
+release with the matching `## <version>` section of
+[CHANGELOG.md](CHANGELOG.md) as its notes. Versions containing `-` (for
+example `2.3.0-beta.1`) are published as pre-releases. Merges without a version
+bump do not create a release.
 
 Release steps:
 
 1. On `dev`: bump `version` in `manifest.json` and add the `## <version>`
    section to `CHANGELOG.md`.
 2. Open a pull request from `dev` to `main`; merge it when the **Validate**
-   checks pass.
-3. Tag the merge commit on `main` with the version and push the tag.
+   checks pass. The release is published automatically.
 
 ## Release status
 

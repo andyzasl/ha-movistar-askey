@@ -81,6 +81,16 @@ def access_point_name(
     return None
 
 
+def describe_attachment(value: Attachment) -> str:
+    """Return a short text such as 'router 5 GHz' or 'repeater'."""
+    return " ".join(part for part in (value.node, value.band) if part) or "unknown"
+
+
+def roam_message(name: str, before: Attachment, now: Attachment) -> str:
+    """Return a human-readable description of a roam."""
+    return f"{name} roamed: {describe_attachment(before)} → {describe_attachment(now)}"
+
+
 def detect_roams(
     previous: dict[str, Attachment],
     current: dict[str, Attachment],
