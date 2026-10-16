@@ -6,6 +6,18 @@ DOMAIN: Final = "movistar_rft8115vw"
 
 CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_CONSIDER_HOME: Final = "consider_home"
+CONF_SIGNAL_SENSORS: Final = "signal_sensors"
+
+SIGNAL_SENSORS_MANUAL: Final = "manual"
+SIGNAL_SENSORS_FOLLOW_TRACKER: Final = "follow_tracker"
+SIGNAL_SENSORS_ALL: Final = "all"
+SIGNAL_SENSOR_MODES: Final = (
+    SIGNAL_SENSORS_MANUAL,
+    SIGNAL_SENSORS_FOLLOW_TRACKER,
+    SIGNAL_SENSORS_ALL,
+)
+DEFAULT_SIGNAL_SENSORS: Final = SIGNAL_SENSORS_MANUAL
+SIGNAL_SENSOR_UNIQUE_ID_SUFFIX: Final = "_signal_strength"
 
 DEFAULT_HOST: Final = "192.168.1.1"
 DEFAULT_SCAN_INTERVAL: Final = 300

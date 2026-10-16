@@ -14,12 +14,15 @@ from homeassistant.helpers import selector
 from .const import (
     CONF_CONSIDER_HOME,
     CONF_SCAN_INTERVAL,
+    CONF_SIGNAL_SENSORS,
     DEFAULT_CONSIDER_HOME,
     DEFAULT_HOST,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_SIGNAL_SENSORS,
     DOMAIN,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
+    SIGNAL_SENSOR_MODES,
 )
 from .router import CannotConnectError, InvalidAuthError, MovistarAskeyClient
 
@@ -54,8 +57,19 @@ OPTIONS_SCHEMA = vol.Schema(
         vol.Required(
             CONF_CONSIDER_HOME, default=DEFAULT_CONSIDER_HOME
         ): _seconds_selector(0),
+        vol.Required(
+            CONF_SIGNAL_SENSORS, default=DEFAULT_SIGNAL_SENSORS
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=list(SIGNAL_SENSOR_MODES),
+                translation_key=CONF_SIGNAL_SENSORS,
+                mode=selector.SelectSelectorMode.DROPDOWN,
+            )
+        ),
     }
 )
+
+_NUMERIC_OPTIONS = (CONF_SCAN_INTERVAL, CONF_CONSIDER_HOME)
 
 
 async def _async_validate(host: str, password: str) -> None:
@@ -211,7 +225,10 @@ class MovistarAskeyOptionsFlow(config_entries.OptionsFlow):
         """Display and store polling and presence options."""
         if user_input is not None:
             return self.async_create_entry(
-                data={key: int(value) for key, value in user_input.items()}
+                data={
+                    key: int(value) if key in _NUMERIC_OPTIONS else value
+                    for key, value in user_input.items()
+                }
             )
         schema = self.add_suggested_values_to_schema(
             OPTIONS_SCHEMA,
@@ -223,6 +240,10 @@ class MovistarAskeyOptionsFlow(config_entries.OptionsFlow):
                 CONF_CONSIDER_HOME: self.config_entry.options.get(
                     CONF_CONSIDER_HOME,
                     DEFAULT_CONSIDER_HOME,
+                ),
+                CONF_SIGNAL_SENSORS: self.config_entry.options.get(
+                    CONF_SIGNAL_SENSORS,
+                    DEFAULT_SIGNAL_SENSORS,
                 ),
             },
         )

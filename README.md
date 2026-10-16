@@ -116,9 +116,19 @@ affected.
 #### Wi-Fi signal sensors
 
 Each client seen on the router's Wi-Fi gets a **Wi-Fi signal** sensor (dBm),
-attached to the client device and **disabled by default**. Enable it for the
-devices you want to graph. The value is empty while the client is away or
-connected through a mesh repeater.
+attached to the client device. The **Wi-Fi signal sensors** option controls
+whether they are enabled:
+
+| Mode | Behavior |
+| --- | --- |
+| Manual (default) | Created disabled; enable the ones you want |
+| Follow tracker | A signal sensor is enabled while its device tracker is enabled |
+| All | Every Wi-Fi client's signal sensor is enabled |
+
+Sensors you disabled yourself are never re-enabled. After a sensor is enabled,
+Home Assistant reloads the integration about 30 seconds later to activate it.
+The value is empty while the client is away or connected through a mesh
+repeater.
 
 #### Events
 
@@ -200,6 +210,7 @@ version).
 | --- | ---: | ---: | --- |
 | Polling interval | 300 seconds | 30–3600 seconds | How often the router map is refreshed |
 | Presence grace period | 600 seconds | 0–3600 seconds | How long a missing client remains `home` |
+| Wi-Fi signal sensors | Manual | Manual, Follow tracker, All | Which per-client signal sensors are enabled |
 
 Internally, the effective presence grace period is never shorter than the
 polling interval.

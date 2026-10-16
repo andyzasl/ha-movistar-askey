@@ -17,8 +17,10 @@ All notable changes to this modernization fork are documented here.
   removing the integration.
 - Translate entity names (English and Spanish) and move icons to
   `icons.json`. Existing entity IDs are unchanged.
-- Add a **Wi-Fi signal** sensor per Wi-Fi client (dBm, disabled by default)
-  for history graphs, with `band` and `access_point` attributes.
+- Add a **Wi-Fi signal** sensor per Wi-Fi client (dBm) for history graphs,
+  with `band` and `access_point` attributes. The **Wi-Fi signal sensors**
+  option sets whether they are enabled: Manual (default), Follow tracker, or
+  All. Sensors disabled by the user are never re-enabled.
 - Add a **Router reachable** connectivity sensor.
 - Add a **Router event** entity that records reboots; the bus event is kept.
 - Raise a repair notice after three consecutive failed polls; it clears on the

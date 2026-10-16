@@ -23,8 +23,10 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .const import SIGNAL_SENSOR_UNIQUE_ID_SUFFIX
 from .coordinator import MovistarAskeyCoordinator
 from .device import client_device_info, router_device_info
+from .signal import signal_sensor_enabled_default
 from .status import BAND_5GHZ, BAND_24GHZ
 
 
@@ -158,7 +160,14 @@ async def async_setup_entry(
         if not new_macs:
             return
         tracked.update(new_macs)
-        async_add_entities(ClientSignalSensor(coordinator, mac) for mac in new_macs)
+        async_add_entities(
+            ClientSignalSensor(
+                coordinator,
+                mac,
+                enabled_default=signal_sensor_enabled_default(hass, entry, mac),
+            )
+            for mac in new_macs
+        )
 
     add_new_signal_sensors()
     entry.async_on_unload(coordinator.async_add_listener(add_new_signal_sensors))
@@ -225,11 +234,17 @@ class ClientSignalSensor(
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_entity_registry_enabled_default = False
 
-    def __init__(self, coordinator: MovistarAskeyCoordinator, mac: str) -> None:
-        """Initialize a disabled-by-default client signal sensor."""
+    def __init__(
+        self,
+        coordinator: MovistarAskeyCoordinator,
+        mac: str,
+        enabled_default: bool = False,
+    ) -> None:
+        """Initialize a client signal sensor."""
         super().__init__(coordinator)
         self._mac = mac
-        self._attr_unique_id = f"{mac}_signal_strength"
+        self._attr_unique_id = f"{mac}{SIGNAL_SENSOR_UNIQUE_ID_SUFFIX}"
+        self._attr_entity_registry_enabled_default = enabled_default
         self._name = coordinator.data[mac].name
 
     @property

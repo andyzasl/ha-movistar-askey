@@ -51,11 +51,13 @@
         "title": "Router monitoring options",
         "data": {
           "scan_interval": "Polling interval",
-          "consider_home": "Presence grace period"
+          "consider_home": "Presence grace period",
+          "signal_sensors": "Wi-Fi signal sensors"
         },
         "data_description": {
           "scan_interval": "How often the router is polled. Default 300 seconds (5 minutes); minimum 30.",
-          "consider_home": "How long a client stays home after it was last seen. Never shorter than the polling interval. Default 600 seconds."
+          "consider_home": "How long a client stays home after it was last seen. Never shorter than the polling interval. Default 600 seconds.",
+          "signal_sensors": "Manual: enable each sensor yourself. Follow tracker: a signal sensor is enabled while its device tracker is enabled. All: every Wi-Fi client gets an enabled signal sensor. Sensors you disabled yourself are never re-enabled."
         }
       }
     }
@@ -115,6 +117,15 @@
     "router_unreachable": {
       "title": "Movistar router unreachable",
       "description": "The last {failures} polls of the router failed ({error}). Device trackers use their presence grace period until the router answers again. Check that the router is on and reachable from Home Assistant. This notice clears automatically after the next successful poll."
+    }
+  },
+  "selector": {
+    "signal_sensors": {
+      "options": {
+        "manual": "Manual",
+        "follow_tracker": "Follow tracker",
+        "all": "All"
+      }
     }
   }
 }

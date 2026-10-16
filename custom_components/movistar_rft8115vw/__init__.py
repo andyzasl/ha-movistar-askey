@@ -24,6 +24,7 @@ from .coordinator import MovistarAskeyCoordinator
 from .device import router_device_info
 from .migration import migrate_options_v1, migrate_tracker_unique_id_v1
 from .router import MovistarAskeyClient
+from .signal import async_sync_signal_sensors, async_track_tracker_changes
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -78,6 +79,8 @@ async def async_setup_entry(
         ),
     )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    async_sync_signal_sensors(hass, entry)
+    async_track_tracker_changes(hass, entry)
     return True
 
 
