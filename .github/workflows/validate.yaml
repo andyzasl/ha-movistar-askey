@@ -2,9 +2,11 @@ name: Validate
 
 on:
   push:
-    branches: [main, "agent/**"]
+    branches: [main]
   pull_request:
     branches: [main]
+  workflow_call:
+  workflow_dispatch:
 
 jobs:
   lint-and-test:

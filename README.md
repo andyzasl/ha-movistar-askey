@@ -1,8 +1,8 @@
 # Movistar Askey Router for Home Assistant
 
-[![Validate](https://github.com/jardenberg/ha-movistar-askey/actions/workflows/validate.yaml/badge.svg)](https://github.com/jardenberg/ha-movistar-askey/actions/workflows/validate.yaml)
+[![Validate](https://github.com/andyzasl/ha-movistar-askey/actions/workflows/validate.yaml/badge.svg)](https://github.com/andyzasl/ha-movistar-askey/actions/workflows/validate.yaml)
 [![HACS custom repository](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/docs/faq/custom_repositories/)
-[![Release](https://img.shields.io/github/v/release/jardenberg/ha-movistar-askey?include_prereleases&label=release)](https://github.com/jardenberg/ha-movistar-askey/releases)
+[![Release](https://img.shields.io/github/v/release/andyzasl/ha-movistar-askey?label=release)](https://github.com/andyzasl/ha-movistar-askey/releases)
 
 A modern, local-polling Home Assistant integration for compatible Movistar
 Askey routers. It reads the router's local web interface and exposes presence
@@ -10,16 +10,17 @@ trackers, per-client Wi-Fi details (band, signal, router or mesh repeater),
 router health sensors, and reboot and roaming events—without using a Movistar
 cloud service.
 
-This project modernizes
-[`luis-garza/movistar_rft8115vw`](https://github.com/luis-garza/movistar_rft8115vw).
-Version 2 replaces Home Assistant's deprecated legacy YAML device tracker with
-config entries, coordinated polling, current entity APIs, reauthentication,
-options, and privacy-preserving diagnostics.
+This project started as a fork of
+[`jardenberg/ha-movistar-askey`](https://github.com/jardenberg/ha-movistar-askey),
+itself a modernization of
+[`luis-garza/movistar_rft8115vw`](https://github.com/luis-garza/movistar_rft8115vw),
+and is now maintained independently. It keeps the `movistar_rft8115vw`
+integration domain, so existing installations of either project upgrade in
+place.
 
-> [!WARNING]
-> Version 2 is currently a prerelease. It has been tested live with a Movistar
-> RTF8316VW and Home Assistant 2026.7.3 and 2026.10.1, but you should keep a
-> recent Home Assistant backup while testing it.
+> [!NOTE]
+> Tested live with a Movistar RTF8316VW and Home Assistant 2026.7.3 and
+> 2026.10.1. Keep a recent Home Assistant backup when upgrading.
 
 ## Compatibility
 
@@ -199,16 +200,20 @@ Repairs**. It clears automatically after the next successful poll.
 
 ## Installation with HACS
 
-Until version 2 is published as a stable release, install it as a custom HACS
-repository:
+Install it as a custom HACS repository:
 
 1. Open **HACS → Integrations**.
 2. Open the menu and choose **Custom repositories**.
-3. Add `https://github.com/jardenberg/ha-movistar-askey` with category
+3. Add `https://github.com/andyzasl/ha-movistar-askey` with category
    **Integration**.
 4. Open **Movistar Askey Router** in HACS.
-5. Choose the latest prerelease version and install it.
+5. Install the latest version.
 6. Restart Home Assistant.
+
+If you previously installed `jardenberg/ha-movistar-askey` or
+`luis-garza/movistar_rft8115vw` through HACS, remove that repository in HACS
+first (both use the same integration folder); your configuration and entities
+are kept.
 
 Then configure the router:
 
@@ -388,11 +393,14 @@ marked as pre-releases.
 ## Release status
 
 See [CHANGELOG.md](CHANGELOG.md) for version history and
-[GitHub Releases](https://github.com/jardenberg/ha-movistar-askey/releases) for
+[GitHub Releases](https://github.com/andyzasl/ha-movistar-askey/releases) for
 installable packages. HACS shows the release notes in the update dialog. To
 install pre-releases, enable **Show beta versions** on the integration in HACS.
 
 ## License and attribution
 
-Licensed under GPL-3.0, following the upstream project. The original integration
-concept and parser remain credited to their respective contributors.
+Licensed under GPL-3.0, following the upstream projects. The original
+integration concept and parser are credited to
+[luis-garza](https://github.com/luis-garza/movistar_rft8115vw); the version 2
+config-entry modernization to
+[jardenberg](https://github.com/jardenberg/ha-movistar-askey).

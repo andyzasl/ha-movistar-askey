@@ -1,6 +1,21 @@
 # Changelog
 
-All notable changes to this modernization fork are documented here.
+All notable changes to this project are documented here.
+
+## 2.1.0
+
+First release maintained independently at
+[`andyzasl/ha-movistar-askey`](https://github.com/andyzasl/ha-movistar-askey).
+It includes all changes from 2.0.0-beta.4 to 2.0.0-beta.6 below, and:
+
+- Point documentation, issue tracker and code owner to the new repository.
+- Releases run the full validation (Ruff, pytest, hassfest, HACS) and check
+  that the tag matches the manifest version before publishing.
+
+Upgrading: remove the previous HACS repository (`jardenberg/ha-movistar-askey`
+or `luis-garza/movistar_rft8115vw`), add this one, install, and restart. The
+integration domain is unchanged, so configuration and entities are kept;
+version 1 entries are migrated automatically.
 
 ## 2.0.0-beta.6
 
