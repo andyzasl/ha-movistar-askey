@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## 2.2.1
+
+- Bundle integration brand assets (`brand/icon.png`, `brand/icon@2x.png`,
+  `brand/logo.png`, `brand/logo@2x.png`) for Home Assistant and the HACS
+  default catalog.
+
 ## 2.2.0
 
 - Roam events name the client in the logbook (for example `iPhone (F0:06)
