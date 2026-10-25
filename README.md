@@ -436,3 +436,5 @@ integration concept and parser are credited to
 [luis-garza](https://github.com/luis-garza/movistar_rft8115vw); the version 2
 config-entry modernization to
 [jardenberg](https://github.com/jardenberg/ha-movistar-askey).
+
+Thank you!

@@ -6,6 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.device_registry import CONNECTION_NETWORK_MAC, DeviceInfo
 
 from .const import DOMAIN, ROUTER_MANUFACTURER, ROUTER_MODEL, ROUTER_NAME
+from .router import NODE_REPEATER
 
 
 def router_identifier(entry: ConfigEntry) -> tuple[str, str]:
@@ -14,16 +15,25 @@ def router_identifier(entry: ConfigEntry) -> tuple[str, str]:
 
 
 def client_device_info(
-    entry: ConfigEntry, mac: str, name: str, model: str | None = None
+    entry: ConfigEntry,
+    mac: str,
+    name: str,
+    model: str | None = None,
+    node: str | None = None,
 ) -> DeviceInfo:
-    """Return metadata for a network client, linked to the router."""
+    """Return metadata for a network client, linked to its upstream node."""
+    via = (
+        repeater_identifier(entry)
+        if node == NODE_REPEATER
+        else router_identifier(entry)
+    )
     info = DeviceInfo(
         connections={(CONNECTION_NETWORK_MAC, mac)},
-        name=name,
-        via_device=router_identifier(entry),
+        default_name=name,
+        via_device=via,
     )
     if model:
-        info["model"] = model
+        info["default_model"] = model
     return info
 
 

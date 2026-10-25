@@ -21,9 +21,9 @@ from .const import (
     ISSUE_ROUTER_UNREACHABLE,
 )
 from .coordinator import MovistarAskeyCoordinator
-from .device import router_device_info
+from .device import repeater_device_info, router_device_info
 from .migration import migrate_options_v1, migrate_tracker_unique_id_v1
-from .router import MovistarAskeyClient
+from .router import NODE_REPEATER, MovistarAskeyClient
 from .signal import async_sync_signal_sensors, async_track_tracker_changes
 
 _LOGGER = logging.getLogger(__name__)
@@ -70,7 +70,8 @@ async def async_setup_entry(
     # Register the parent before platform forwarding. Device trackers are added
     # immediately and Home Assistant requires their via_device to already exist.
     summary = coordinator.status.summary
-    dr.async_get(hass).async_get_or_create(
+    registry = dr.async_get(hass)
+    registry.async_get_or_create(
         config_entry_id=entry.entry_id,
         **router_device_info(
             entry,
@@ -78,6 +79,13 @@ async def async_setup_entry(
             hw_version=summary.hardware if summary else None,
         ),
     )
+    if any(
+        device.node == NODE_REPEATER for device in (coordinator.data or {}).values()
+    ):
+        registry.async_get_or_create(
+            config_entry_id=entry.entry_id,
+            **repeater_device_info(entry),
+        )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     async_sync_signal_sensors(hass, entry)
     async_track_tracker_changes(hass, entry)

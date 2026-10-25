@@ -118,6 +118,7 @@ class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
             mac,
             display_name(device, self.suffixed),
             model=client_model(device, client.band if client else None),
+            node=device.node,
         )
 
     def _sync_client_devices(self, devices: dict[str, RouterDevice]) -> None:
@@ -144,7 +145,7 @@ class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
             entry = registry.async_get_device(
                 connections={(dr.CONNECTION_NETWORK_MAC, mac)}
             )
-            if entry is None:
+            if entry is None or entry.config_entries != {self.config_entry.entry_id}:
                 continue
             device = devices[mac]
             client = self.status.wifi_clients.get(mac)
