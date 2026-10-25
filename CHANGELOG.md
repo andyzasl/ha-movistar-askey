@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## 2.2.2
+
+- Only update client device registry entries owned exclusively by this
+  integration, and use `default_name` / `default_model` in `DeviceInfo` so
+  devices shared by MAC address with other integrations (such as Sonos or Hue)
+  keep their own name, model and parent.
+- Link repeater clients directly to the mesh repeater device on initial setup
+  and first discovery.
+
 ## 2.2.1
 
 - Bundle integration brand assets (`brand/icon.png`, `brand/icon@2x.png`,
