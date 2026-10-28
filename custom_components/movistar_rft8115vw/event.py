@@ -40,9 +40,14 @@ class RouterEventEntity(EventEntity):
         self._entry = coordinator.config_entry
         self._attr_unique_id = f"{self._entry.unique_id}_router_event"
         self._attr_event_types = [EVENT_TYPE_REBOOTED, EVENT_TYPE_CLIENT_ROAMED]
+        self._last_event_type: str | None = None
 
     async def async_added_to_hass(self) -> None:
         """Listen for reboot and roam events fired by the coordinator."""
+        await super().async_added_to_hass()
+        if (event_data := await self.async_get_last_event_data()) is not None:
+            self._last_event_type = event_data.last_event_type
+
         for bus_event, event_type in (
             (EVENT_ROUTER_REBOOTED, EVENT_TYPE_REBOOTED),
             (EVENT_CLIENT_ROAMED, EVENT_TYPE_CLIENT_ROAMED),
@@ -54,10 +59,19 @@ class RouterEventEntity(EventEntity):
     def _handler(self, event_type: str) -> Callable[[Event], None]:
         @callback
         def handle(event: Event) -> None:
+            self._last_event_type = event_type
+            self.async_set_context(event.context)
             self._trigger_event(event_type, dict(event.data))
             self.async_write_ha_state()
 
         return handle
+
+    @property
+    def icon(self) -> str:
+        """Return dynamic icon based on the last triggered event."""
+        if self._last_event_type == EVENT_TYPE_CLIENT_ROAMED:
+            return "mdi:wifi-sync"
+        return "mdi:restart"
 
     @property
     def device_info(self) -> DeviceInfo:
