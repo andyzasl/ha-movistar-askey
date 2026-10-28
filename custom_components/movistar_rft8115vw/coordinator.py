@@ -20,6 +20,7 @@ from .clients import (
     Attachment,
     attachment,
     client_model,
+    describe_attachment,
     detect_roams,
     display_name,
     roam_message,
@@ -30,7 +31,10 @@ from .const import (
     EVENT_CLIENT_ROAMED,
     EVENT_ROUTER_REBOOTED,
     FAILURE_TOLERANCE,
+    IP_SENSOR_UNIQUE_ID_SUFFIX,
     ISSUE_ROUTER_UNREACHABLE,
+    ROAM_SENSOR_UNIQUE_ID_SUFFIX,
+    SIGNAL_SENSOR_UNIQUE_ID_SUFFIX,
 )
 from .device import client_device_info, repeater_device_info, router_identifier
 from .router import (
@@ -167,6 +171,34 @@ class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
             return fallback
         return display_name(device, self.suffixed)
 
+    def client_entity_id(self, mac: str) -> str | None:
+        """Return the best entity ID created by this integration for a client."""
+        registry = er.async_get(self.hass)
+        tracker_id = registry.async_get_entity_id(Platform.DEVICE_TRACKER, DOMAIN, mac)
+        if (
+            tracker_id
+            and (entry := registry.async_get(tracker_id))
+            and not entry.disabled
+        ):
+            return tracker_id
+
+        for suffix in (
+            ROAM_SENSOR_UNIQUE_ID_SUFFIX,
+            SIGNAL_SENSOR_UNIQUE_ID_SUFFIX,
+            IP_SENSOR_UNIQUE_ID_SUFFIX,
+        ):
+            sensor_id = registry.async_get_entity_id(
+                Platform.SENSOR, DOMAIN, f"{mac}{suffix}"
+            )
+            if (
+                sensor_id
+                and (entry := registry.async_get(sensor_id))
+                and not entry.disabled
+            ):
+                return sensor_id
+
+        return tracker_id
+
     def person_names(self, mac: str) -> list[str]:
         """Return the names of persons that use this client's device tracker."""
         tracker_id = er.async_get(self.hass).async_get_entity_id(
@@ -193,16 +225,23 @@ class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
             device_entry = dr.async_get(self.hass).async_get_device(
                 connections={(dr.CONNECTION_NETWORK_MAC, mac)}
             )
+            entity_id = self.client_entity_id(mac)
+            from_ap = describe_attachment(before)
+            to_ap = describe_attachment(now)
             self.hass.bus.async_fire(
                 EVENT_CLIENT_ROAMED,
                 {
                     "mac": mac,
                     "name": name,
+                    "client_name": name,
+                    "entity_id": entity_id,
                     "device_id": device_entry.id if device_entry else None,
                     "from_node": before.node,
                     "to_node": now.node,
                     "from_band": before.band,
                     "to_band": now.band,
+                    "from_access_point": from_ap,
+                    "to_access_point": to_ap,
                     "message": roam_message(name, before, now),
                     "roam_count": self.roam_counts[mac],
                 },
