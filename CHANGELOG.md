@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## 2.2.3
+
+- Link client entities and access points in roam events and logbook entries:
+  clicking the logbook entry navigates to the client entity, and the message
+  describes transit between access points (for example `roamed from router 5 GHz
+  to repeater`).
+- Preserve event context on the router event entity so Home Assistant's
+  Activity logbook shows the triggering cause instead of "No cause was
+  recorded for this activity".
+- Dynamic icon on the router event entity (`mdi:wifi-sync` for client roams,
+  `mdi:restart` for reboots), restored across Home Assistant restarts.
+
 ## 2.2.2
 
 - Only update client device registry entries owned exclusively by this
