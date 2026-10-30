@@ -168,14 +168,12 @@ mesh repeater.
 
 #### Events
 
-The **Router event** entity records:
-
-- `rebooted` when router uptime goes backwards between two polls (bus event
-  `movistar_rft8115vw_router_rebooted` with `uptime_seconds` and
-  `previous_uptime_seconds`);
-- `client_roamed` when a client present in two consecutive polls changes node
-  (router ⇄ repeater) or band (bus event `movistar_rft8115vw_client_roamed`
-  with `mac`, `name`, `device_id`, `from_node`, `to_node`, `from_band`,
+- The **Router event** entity records `rebooted` when router uptime goes
+  backwards between two polls (bus event `movistar_rft8115vw_router_rebooted`
+  with `uptime_seconds` and `previous_uptime_seconds`).
+- Client roaming fires the `movistar_rft8115vw_client_roamed` bus event when a
+  client present in two consecutive polls changes node (router ⇄ repeater) or
+  band (with `mac`, `name`, `device_id`, `from_node`, `to_node`, `from_band`,
   `to_band`, `message` and `roam_count`).
 
 The logbook names the client, for example `iPhone (F0:06) roamed router 5 GHz →

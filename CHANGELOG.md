@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## 2.2.4
+
+- Deduplicate roaming logbook entries: remove `client_roamed` from the router's
+  event entity so client roams only appear once under their own device activity
+  with full transition details.
+- Reserve the router event entity strictly for router lifecycle events
+  (`rebooted`).
+
 ## 2.2.3
 
 - Link client entities and access points in roam events and logbook entries:

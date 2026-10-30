@@ -1,18 +1,13 @@
 """Tests for the router event entity."""
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-from homeassistant.components.event import EventExtraStoredData
 from homeassistant.core import Context, Event
 
-from custom_components.movistar_rft8115vw.const import (
-    EVENT_CLIENT_ROAMED,
-    EVENT_ROUTER_REBOOTED,
-)
+from custom_components.movistar_rft8115vw.const import EVENT_ROUTER_REBOOTED
 from custom_components.movistar_rft8115vw.event import (
-    EVENT_TYPE_CLIENT_ROAMED,
     EVENT_TYPE_REBOOTED,
     RouterEventEntity,
 )
@@ -25,94 +20,56 @@ def mock_coordinator() -> SimpleNamespace:
         config_entry=SimpleNamespace(
             unique_id="192.168.1.1",
             entry_id="entry-1",
+            data={"host": "192.168.1.1"},
         )
     )
+
+
+def test_router_event_entity_types(mock_coordinator: SimpleNamespace) -> None:
+    """The router event entity exposes only the rebooted event type."""
+    entity = RouterEventEntity(mock_coordinator)
+    assert entity.event_types == [EVENT_TYPE_REBOOTED]
+    assert entity.unique_id == "192.168.1.1_router_event"
 
 
 @pytest.mark.anyio
 async def test_router_event_entity_preserves_context_and_attributes(
     mock_coordinator: SimpleNamespace,
 ) -> None:
-    """The event entity preserves the trigger event context and sets roam attributes."""
+    """The event entity preserves trigger context and sets reboot attributes."""
     entity = RouterEventEntity(mock_coordinator)
     entity.hass = MagicMock()
     entity.entity_id = "event.movistar_askey_router_router_event"
     entity.async_write_ha_state = MagicMock()
 
     context = Context()
-    roam_data = {
-        "mac": "CE:FD:DE:2D:81:7E",
-        "name": "iPhone",
-        "client_name": "iPhone",
-        "entity_id": "device_tracker.iphone",
-        "from_node": "router",
-        "to_node": "repeater",
-        "from_band": "5 GHz",
-        "to_band": None,
-        "from_access_point": "router 5 GHz",
-        "to_access_point": "repeater",
-        "message": "iPhone roamed: router 5 GHz → repeater",
-        "roam_count": 2,
+    reboot_data = {
+        "uptime_seconds": 60,
+        "previous_uptime_seconds": 3600,
     }
-    event = Event(EVENT_CLIENT_ROAMED, roam_data, context=context)
+    event = Event(EVENT_ROUTER_REBOOTED, reboot_data, context=context)
 
-    handler = entity._handler(EVENT_TYPE_CLIENT_ROAMED)
-    handler(event)
+    entity._handle_reboot(event)
 
     # Context must match the triggering event
     assert entity._context == context
-    # Icon reflects roaming
-    assert entity.icon == "mdi:wifi-sync"
-    # Attributes must include all roam details and entity linkage
+    # Attributes must include reboot details
     attrs = entity.state_attributes
-    assert attrs["event_type"] == EVENT_TYPE_CLIENT_ROAMED
-    assert attrs["client_name"] == "iPhone"
-    assert attrs["entity_id"] == "device_tracker.iphone"
-    assert attrs["from_access_point"] == "router 5 GHz"
-    assert attrs["to_access_point"] == "repeater"
-    assert attrs["message"] == "iPhone roamed: router 5 GHz → repeater"
-    assert attrs["roam_count"] == 2
+    assert attrs["event_type"] == EVENT_TYPE_REBOOTED
+    assert attrs["uptime_seconds"] == 60
+    assert attrs["previous_uptime_seconds"] == 3600
 
 
 @pytest.mark.anyio
-async def test_router_event_entity_icon_transitions(
+async def test_router_event_entity_listens_to_reboot(
     mock_coordinator: SimpleNamespace,
 ) -> None:
-    """Icon dynamically reflects rebooted vs client_roamed states."""
+    """The entity listens only for router reboot bus events."""
     entity = RouterEventEntity(mock_coordinator)
     entity.hass = MagicMock()
-    entity.entity_id = "event.movistar_askey_router_router_event"
-    entity.async_write_ha_state = MagicMock()
+    entity.async_on_remove = MagicMock()
 
-    # Initial state
-    assert entity.icon == "mdi:restart"
+    await entity.async_added_to_hass()
 
-    # Roam event
-    roam_event = Event(EVENT_CLIENT_ROAMED, {"mac": "AA:BB:CC:DD:EE:FF"})
-    entity._handler(EVENT_TYPE_CLIENT_ROAMED)(roam_event)
-    assert entity.icon == "mdi:wifi-sync"
-
-    # Reboot event
-    reboot_event = Event(EVENT_ROUTER_REBOOTED, {"uptime_seconds": 60})
-    entity._handler(EVENT_TYPE_REBOOTED)(reboot_event)
-    assert entity.icon == "mdi:restart"
-
-
-@pytest.mark.anyio
-async def test_router_event_entity_restores_last_event_type(
-    mock_coordinator: SimpleNamespace,
-) -> None:
-    """On HA startup, the last event type is restored to determine icon."""
-    entity = RouterEventEntity(mock_coordinator)
-    entity.hass = MagicMock()
-    entity.entity_id = "event.movistar_askey_router_router_event"
-
-    stored_data = EventExtraStoredData(EVENT_TYPE_CLIENT_ROAMED, {})
-    with patch.object(
-        entity, "async_get_last_event_data", new_callable=AsyncMock
-    ) as mock_last_event_data:
-        mock_last_event_data.return_value = stored_data
-        await entity.async_added_to_hass()
-
-    assert entity._last_event_type == EVENT_TYPE_CLIENT_ROAMED
-    assert entity.icon == "mdi:wifi-sync"
+    entity.hass.bus.async_listen.assert_called_once()
+    assert entity.hass.bus.async_listen.call_args[0][0] == EVENT_ROUTER_REBOOTED
