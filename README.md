@@ -227,51 +227,50 @@ Then configure the router:
 
 No username is required by the supported router interface.
 
-## Migrating from version 2.x (`movistar_rft8115vw`)
+## Migration Guide
 
-Starting in version 3.0.0, this integration uses its own dedicated domain (`movistar_askey`) to avoid conflicts with `luis-garza/movistar_rft8115vw`:
+Because this integration now runs under its own unique domain (`movistar_askey`), it installs into `custom_components/movistar_askey` and does not conflict with or overwrite `custom_components/movistar_rft8115vw`.
 
-1. In Home Assistant, open **Settings → Devices & services** and remove the previous **Movistar Askey Router** (`movistar_rft8115vw`) integration entry.
-2. In **HACS → Integrations**, update `andyzasl/ha-movistar-askey` (or remove the old repository if replacing an older fork) and install version 3.0.0+.
-3. Restart Home Assistant.
-4. Go to **Settings → Devices & services → Add integration**, search for **Movistar Askey Router**, and enter your router's IP and password.
-5. If you have automations listening to event triggers, update the event types from `movistar_rft8115vw_client_roamed` / `movistar_rft8115vw_router_rebooted` to `movistar_askey_client_roamed` / `movistar_askey_router_rebooted`.
+### Migrating from `luis-garza/movistar_rft8115vw`
 
-## Migrating from the UI-based version 1 integration
+If you are currently using the upstream `luis-garza/movistar_rft8115vw` integration (from HACS default or manual install):
 
-Config entries created through the UI by
-[`luis-garza/movistar_rft8115vw`](https://github.com/luis-garza/movistar_rft8115vw)
-are migrated automatically on first start: the polling interval option is
-carried over (raised to at least 30 seconds), and existing device trackers keep
-their entity IDs and person assignments. No reconfiguration is needed.
+1. **Remove the old integration**:
+   - In Home Assistant, open **Settings → Devices & services**.
+   - Find the existing **Movistar RFT8115VW** (or `movistar_rft8115vw`) integration entry, click **⋮ → Delete**.
+2. **Remove the old repository in HACS**:
+   - In **HACS → Integrations**, find `luis-garza/movistar_rft8115vw` and choose **Remove**.
+3. **Remove legacy YAML configuration** (if applicable):
+   - If you still have a legacy YAML tracker block in `configuration.yaml`:
+     ```yaml
+     device_tracker:
+       - platform: movistar_rft8115vw
+         host: 192.168.1.1
+         password: !secret movistar_router_password
+     ```
+     remove that block and check your Home Assistant configuration.
+4. **Install Movistar Askey Router**:
+   - In HACS, search for **Movistar Askey Router** (version 3.0.0+) and install it.
+   - Restart Home Assistant.
+5. **Add the new integration**:
+   - Go to **Settings → Devices & services → Add integration**, search for **Movistar Askey Router**, and enter your router's IP address (usually `192.168.1.1`) and admin password.
+   - Enable only the device trackers or client sensors used by your automations.
 
-## Migrating from the legacy YAML tracker
+### Migrating from version 2.x of this repository
 
-The old integration used a YAML platform similar to:
+If you previously installed version 2.x of `andyzasl/ha-movistar-askey` as a custom repository:
 
-```yaml
-device_tracker:
-  - platform: movistar_rft8115vw
-    host: 192.168.1.1
-    password: !secret movistar_router_password
-```
-
-To migrate:
-
-1. Make a Home Assistant backup.
-2. Remove the legacy `movistar_rft8115vw` block from `configuration.yaml`.
-3. Check the Home Assistant configuration.
-4. Install version 2 through HACS and restart Home Assistant.
-5. Add **Movistar Askey Router** through **Settings → Devices & services**.
-6. Enable only the client trackers used by your automations or presence logic.
-
-After setup, the password is stored in Home Assistant's config-entry storage.
-It does not need to remain in `secrets.yaml` unless something else still uses
-that secret.
-
-The deprecated legacy tracker warning is removed because version 2 uses modern
-config-entry entities. Existing tracker entity IDs are not guaranteed to carry
-over automatically; verify presence automations after migration.
+1. **Remove the 2.x integration entry**:
+   - In Home Assistant, open **Settings → Devices & services** and delete the previous **Movistar Askey Router** entry (which was registered under the old domain `movistar_rft8115vw`).
+2. **Update in HACS**:
+   - In **HACS → Integrations**, update `andyzasl/ha-movistar-askey` to version 3.0.0 or later.
+   - Restart Home Assistant.
+3. **Re-add the integration**:
+   - Go to **Settings → Devices & services → Add integration**, search for **Movistar Askey Router**, and enter your router credentials.
+4. **Update event automations**:
+   - If you have automations listening to bus events, update the event types:
+     - `movistar_rft8115vw_client_roamed` ➔ `movistar_askey_client_roamed`
+     - `movistar_rft8115vw_router_rebooted` ➔ `movistar_askey_router_rebooted`
 
 ## Options
 
