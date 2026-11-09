@@ -9,11 +9,11 @@ from homeassistant.components.logbook import (
 )
 from homeassistant.core import Event
 
-from custom_components.movistar_rft8115vw.const import (
+from custom_components.movistar_askey.const import (
     EVENT_CLIENT_ROAMED,
     EVENT_ROUTER_REBOOTED,
 )
-from custom_components.movistar_rft8115vw.logbook import async_describe_events
+from custom_components.movistar_askey.logbook import async_describe_events
 
 
 def test_async_describe_events_registers_handlers() -> None:

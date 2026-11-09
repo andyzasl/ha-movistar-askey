@@ -5,15 +5,15 @@ from unittest.mock import MagicMock, patch
 
 from homeassistant.helpers import device_registry as dr
 
-from custom_components.movistar_rft8115vw.const import DOMAIN
-from custom_components.movistar_rft8115vw.coordinator import MovistarAskeyCoordinator
-from custom_components.movistar_rft8115vw.device import (
+from custom_components.movistar_askey.const import DOMAIN
+from custom_components.movistar_askey.coordinator import MovistarAskeyCoordinator
+from custom_components.movistar_askey.device import (
     client_device_info,
     repeater_identifier,
     router_device_info,
     router_identifier,
 )
-from custom_components.movistar_rft8115vw.router import (
+from custom_components.movistar_askey.router import (
     NODE_REPEATER,
     RouterDevice,
     RouterStatus,

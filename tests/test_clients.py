@@ -1,6 +1,6 @@
 """Tests for client naming, description, node and roam detection."""
 
-from custom_components.movistar_rft8115vw.clients import (
+from custom_components.movistar_askey.clients import (
     Attachment,
     access_point_name,
     client_model,
@@ -9,7 +9,7 @@ from custom_components.movistar_rft8115vw.clients import (
     roam_message,
     update_suffixed,
 )
-from custom_components.movistar_rft8115vw.router import (
+from custom_components.movistar_askey.router import (
     RouterDevice,
     is_private_mac,
     parse_device_data,

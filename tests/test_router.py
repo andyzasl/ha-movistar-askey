@@ -2,7 +2,7 @@
 
 import pytest
 
-from custom_components.movistar_rft8115vw.router import (
+from custom_components.movistar_askey.router import (
     RouterParseError,
     _authentication_failed,
     encode_router_value,

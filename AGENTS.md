@@ -8,7 +8,7 @@ Continuation context and guidelines for AI coding assistants working on this rep
 
 **ha-movistar-askey** is a modern [Home Assistant](https://www.home-assistant.io/) custom component (HACS integration) for Movistar (Telefónica) GPON/HGU routers manufactured by Askey (specifically **RTF8115VW**, and compatible models such as **RTF8316VW**).
 
-* **Domain**: `movistar_rft8115vw`
+* **Domain**: `movistar_askey`
 * **Type**: Hub / local polling integration (`local_polling`)
 * **Transport**: Local HTTP web interface scraping using `aiohttp` against endpoints like `/login.cgi`, `/device_data.cgi`, and `/status.cgi`.
 
@@ -27,8 +27,8 @@ Continuation context and guidelines for AI coding assistants working on this rep
 * Detects client roaming between access points (router 2.4 GHz, router 5 GHz, or mesh repeater) via `detect_roams(...)`.
 * Maintains cumulative roam counters per client and router-wide total roams (persisted across restarts).
 * Dispatches bus events:
-  * `movistar_rft8115vw_client_roamed`: Fired when a client moves between nodes or bands.
-  * `movistar_rft8115vw_router_rebooted`: Fired when router uptime decreases between consecutive polls.
+  * `movistar_askey_client_roamed`: Fired when a client moves between nodes or bands.
+  * `movistar_askey_router_rebooted`: Fired when router uptime decreases between consecutive polls.
 
 ### 3. Device Hierarchy (`device.py`)
 * **Router Device**: Primary hub device representing the physical gateway.
@@ -49,8 +49,8 @@ Continuation context and guidelines for AI coding assistants working on this rep
 
 ### 5. Logbook Integration (`logbook.py`)
 * Implements `async_describe_events` to provide rich, human-readable entries:
-  * `movistar_rft8115vw_client_roamed`: Formatted as `<Client Name> roamed from <Node A> to <Node B>`, linked directly to the client device's activity.
-  * `movistar_rft8115vw_router_rebooted`: Formatted as `Movistar Askey Router rebooted`.
+  * `movistar_askey_client_roamed`: Formatted as `<Client Name> roamed from <Node A> to <Node B>`, linked directly to the client device's activity.
+  * `movistar_askey_router_rebooted`: Formatted as `Movistar Askey Router rebooted`.
 
 ---
 
@@ -58,7 +58,7 @@ Continuation context and guidelines for AI coding assistants working on this rep
 
 ```
 ha-movistar-askey/
-├── custom_components/movistar_rft8115vw/
+├── custom_components/movistar_askey/
 │   ├── __init__.py          # Entry setup, device registry initialization, platform forwarding
 │   ├── binary_sensor.py     # Router connectivity binary sensor
 │   ├── clients.py           # Client naming, MAC suffix deduplication, roam detection
@@ -140,7 +140,7 @@ pytest tests/test_event.py -k test_router_event_entity_types
   * `dev`: Primary development branch. All feature work, bug fixes, and version preparations happen here.
   * `main`: Production/release branch. Only contains tagged release commits.
 * **Automated Releases**:
-  1. Bump `"version"` in `custom_components/movistar_rft8115vw/manifest.json`.
+  1. Bump `"version"` in `custom_components/movistar_askey/manifest.json`.
   2. Add a corresponding `## <version>` section at the top of `CHANGELOG.md`.
   3. Ensure all tests and `ruff` checks pass.
   4. Merge `dev` into `main` and push to `origin/main`.

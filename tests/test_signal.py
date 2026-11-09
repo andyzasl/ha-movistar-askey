@@ -2,7 +2,7 @@
 
 import pytest
 
-from custom_components.movistar_rft8115vw.signal import (
+from custom_components.movistar_askey.signal import (
     NO_CHANGE,
     desired_disabled_by,
 )

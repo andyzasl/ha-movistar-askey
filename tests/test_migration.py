@@ -1,6 +1,6 @@
 """Tests for version 1 to version 2 config-entry migration helpers."""
 
-from custom_components.movistar_rft8115vw.migration import (
+from custom_components.movistar_askey.migration import (
     migrate_options_v1,
     migrate_tracker_unique_id_v1,
 )

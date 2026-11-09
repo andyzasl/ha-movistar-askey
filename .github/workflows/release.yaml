@@ -32,7 +32,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -o errexit -o pipefail -o nounset
-          version="$(jq -r .version custom_components/movistar_rft8115vw/manifest.json)"
+          version="$(jq -r .version custom_components/movistar_askey/manifest.json)"
           if git rev-parse --quiet --verify "refs/tags/$version" >/dev/null; then
             echo "Version $version is already released; nothing to do."
             exit 0

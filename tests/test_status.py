@@ -1,6 +1,6 @@
 """Tests for the router's XML status parsers."""
 
-from custom_components.movistar_rft8115vw.status import (
+from custom_components.movistar_askey.status import (
     BAND_5GHZ,
     parse_associations,
     parse_radio,

@@ -2,15 +2,15 @@
 
 import json
 
-from custom_components.movistar_rft8115vw.diag import (
+from custom_components.movistar_askey.diag import (
     link_crosstab,
     summarize_capture,
     summarize_device_map,
     summarize_xml,
     value_shape,
 )
-from custom_components.movistar_rft8115vw.router import Capture, parse_device_data
-from custom_components.movistar_rft8115vw.status import BAND_5GHZ, parse_associations
+from custom_components.movistar_askey.router import Capture, parse_device_data
+from custom_components.movistar_askey.status import BAND_5GHZ, parse_associations
 
 SECRETS = (
     "AA:BB:CC:DD:EE:01",

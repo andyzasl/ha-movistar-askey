@@ -1,5 +1,5 @@
 {
-  "domain": "movistar_rft8115vw",
+  "domain": "movistar_askey",
   "name": "Movistar Askey Router",
   "codeowners": ["@andyzasl"],
   "config_flow": true,
@@ -7,7 +7,7 @@
   "integration_type": "hub",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/andyzasl/ha-movistar-askey/issues",
-  "loggers": ["custom_components.movistar_rft8115vw"],
+  "loggers": ["custom_components.movistar_askey"],
   "single_config_entry": true,
-  "version": "2.2.4"
+  "version": "3.0.0"
 }

@@ -16,9 +16,7 @@ This project started as a fork of
 [`jardenberg/ha-movistar-askey`](https://github.com/jardenberg/ha-movistar-askey),
 itself a modernization of
 [`luis-garza/movistar_rft8115vw`](https://github.com/luis-garza/movistar_rft8115vw),
-and is now maintained independently. It keeps the `movistar_rft8115vw`
-integration domain, so existing installations of either project upgrade in
-place.
+and is now maintained independently under the `movistar_askey` integration domain.
 
 > [!NOTE]
 > Tested live with a Movistar RTF8316VW and Home Assistant 2026.7.3 and
@@ -169,9 +167,9 @@ mesh repeater.
 #### Events
 
 - The **Router event** entity records `rebooted` when router uptime goes
-  backwards between two polls (bus event `movistar_rft8115vw_router_rebooted`
+  backwards between two polls (bus event `movistar_askey_router_rebooted`
   with `uptime_seconds` and `previous_uptime_seconds`).
-- Client roaming fires the `movistar_rft8115vw_client_roamed` bus event when a
+- Client roaming fires the `movistar_askey_client_roamed` bus event when a
   client present in two consecutive polls changes node (router ⇄ repeater) or
   band (with `mac`, `name`, `device_id`, `from_node`, `to_node`, `from_band`,
   `to_band`, `message` and `roam_count`).
@@ -187,7 +185,7 @@ Example: notify when a client moves between router and repeater.
 ```yaml
 triggers:
   - trigger: event
-    event_type: movistar_rft8115vw_client_roamed
+    event_type: movistar_askey_client_roamed
 conditions:
   - condition: template
     value_template: "{{ trigger.event.data.from_node != trigger.event.data.to_node }}"
@@ -220,11 +218,6 @@ Install it as a custom HACS repository:
 5. Install the latest version.
 6. Restart Home Assistant.
 
-If you previously installed `jardenberg/ha-movistar-askey` or
-`luis-garza/movistar_rft8115vw` through HACS, remove that repository in HACS
-first (both use the same integration folder); your configuration and entities
-are kept.
-
 Then configure the router:
 
 1. Open **Settings → Devices & services**.
@@ -233,6 +226,16 @@ Then configure the router:
 4. Enter the router IP address and its web-admin password.
 
 No username is required by the supported router interface.
+
+## Migrating from version 2.x (`movistar_rft8115vw`)
+
+Starting in version 3.0.0, this integration uses its own dedicated domain (`movistar_askey`) to avoid conflicts with `luis-garza/movistar_rft8115vw`:
+
+1. In Home Assistant, open **Settings → Devices & services** and remove the previous **Movistar Askey Router** (`movistar_rft8115vw`) integration entry.
+2. In **HACS → Integrations**, update `andyzasl/ha-movistar-askey` (or remove the old repository if replacing an older fork) and install version 3.0.0+.
+3. Restart Home Assistant.
+4. Go to **Settings → Devices & services → Add integration**, search for **Movistar Askey Router**, and enter your router's IP and password.
+5. If you have automations listening to event triggers, update the event types from `movistar_rft8115vw_client_roamed` / `movistar_rft8115vw_router_rebooted` to `movistar_askey_client_roamed` / `movistar_askey_router_rebooted`.
 
 ## Migrating from the UI-based version 1 integration
 

@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## 3.0.0
+
+- Migrate integration domain from `movistar_rft8115vw` to `movistar_askey` (`custom_components/movistar_askey`) to resolve domain conflicts with `luis-garza/movistar_rft8115vw` in HACS default catalog.
+- Update bus event names from `movistar_rft8115vw_*` to `movistar_askey_router_rebooted` and `movistar_askey_client_roamed`.
+- Update logger namespace to `custom_components.movistar_askey`.
+- Add migration guide in `README.md` for users upgrading from 2.x custom repository installs.
+
 ## 2.2.4
 
 - Deduplicate roaming logbook entries: remove `client_roamed` from the router's

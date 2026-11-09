@@ -2,7 +2,7 @@
 
 from typing import Final
 
-DOMAIN: Final = "movistar_rft8115vw"
+DOMAIN: Final = "movistar_askey"
 
 CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_CONSIDER_HOME: Final = "consider_home"

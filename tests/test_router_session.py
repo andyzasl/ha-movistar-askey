@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from custom_components.movistar_rft8115vw.router import (
+from custom_components.movistar_askey.router import (
     InvalidAuthError,
     MovistarAskeyClient,
 )

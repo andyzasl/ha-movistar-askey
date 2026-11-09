@@ -7,15 +7,15 @@ from homeassistant.const import Platform
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
-from custom_components.movistar_rft8115vw.clients import Attachment
-from custom_components.movistar_rft8115vw.const import (
+from custom_components.movistar_askey.clients import Attachment
+from custom_components.movistar_askey.const import (
     DOMAIN,
     EVENT_CLIENT_ROAMED,
     ROAM_SENSOR_UNIQUE_ID_SUFFIX,
 )
-from custom_components.movistar_rft8115vw.coordinator import MovistarAskeyCoordinator
-from custom_components.movistar_rft8115vw.router import RouterDevice, RouterStatus
-from custom_components.movistar_rft8115vw.status import WifiClient
+from custom_components.movistar_askey.coordinator import MovistarAskeyCoordinator
+from custom_components.movistar_askey.router import RouterDevice, RouterStatus
+from custom_components.movistar_askey.status import WifiClient
 
 
 def test_client_entity_id_only_uses_own_entities() -> None:

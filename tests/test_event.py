@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 import pytest
 from homeassistant.core import Context, Event
 
-from custom_components.movistar_rft8115vw.const import EVENT_ROUTER_REBOOTED
-from custom_components.movistar_rft8115vw.event import (
+from custom_components.movistar_askey.const import EVENT_ROUTER_REBOOTED
+from custom_components.movistar_askey.event import (
     EVENT_TYPE_REBOOTED,
     RouterEventEntity,
 )
