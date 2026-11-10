@@ -88,15 +88,16 @@ entities:
 
 #### Device trackers
 
-The integration creates a tracker when it first sees a client MAC address.
-Trackers are **disabled by default** to avoid filling Home Assistant with dozens
-of unwanted presence entities.
+The integration creates a tracker entity when it first observes a client MAC address.
+Trackers are **enabled by default** for network presence tracking and can immediately
+be assigned to a person in **Settings → People → [Person Name] → Track device**.
 
-Enable only the trackers you need:
+If there are devices you do not wish to track (such as smart plugs or IoT gadgets),
+you can disable them at any time:
 
-1. Open **Settings → Devices & services → Entities**.
-2. Select the relevant client entity.
-3. Enable it in the entity settings.
+1. Open **Settings → Devices & services → Movistar Askey Router → Entities** (or navigate to the device card).
+2. Select the relevant device tracker entity.
+3. Toggle **Enable entity** off in the entity settings and click **Update**.
 
 Each tracker exposes the latest hostname, IPv4 address, and MAC address. A
 client remains `home` for the configured presence-grace period after it stops

@@ -45,11 +45,13 @@ class MovistarAskeyDeviceTracker(
 ):
     """Represent a network client detected by the router."""
 
-    _attr_entity_registry_enabled_default = False
+    _attr_entity_registry_enabled_default = True
+    _attr_has_entity_name = True
+    _attr_name = None
     _attr_source_type = SourceType.ROUTER
 
     def __init__(self, coordinator: MovistarAskeyCoordinator, mac: str) -> None:
-        """Initialize one disabled-by-default client tracker."""
+        """Initialize one client tracker."""
         super().__init__(coordinator)
         self._mac = mac
         self._attr_unique_id = mac
@@ -60,11 +62,6 @@ class MovistarAskeyDeviceTracker(
         if device := self.coordinator.data.get(self._mac):
             self._cached_device = device
         super()._handle_coordinator_update()
-
-    @property
-    def name(self) -> str:
-        """Return the client name, made unique with a MAC suffix if needed."""
-        return self.coordinator.display_name(self._mac, self._cached_device.name)
 
     @property
     def is_connected(self) -> bool:

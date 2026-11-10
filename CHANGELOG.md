@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## 3.0.1
+
+- Enable device tracker entities by default for all connected clients, allowing immediate assignment to a Person for presence tracking in Home Assistant.
+- Fix options update handler to always reload the config entry so newly enabled client entities take effect immediately without needing a manual restart.
+- Automatically re-enable any device trackers previously disabled by the integration.
+- Adopt Home Assistant 2026.11 modern `ScannerEntity` standard (`has_entity_name = True`, inheriting the device name).
+- Add comprehensive test suite for the device tracker platform.
+
 ## 3.0.0
 
 - Migrate integration domain from `movistar_rft8115vw` to `movistar_askey` (`custom_components/movistar_askey`) to resolve domain conflicts with `luis-garza/movistar_rft8115vw` in HACS default catalog.

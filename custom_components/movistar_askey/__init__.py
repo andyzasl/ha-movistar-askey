@@ -125,16 +125,8 @@ async def _async_options_updated(
     hass: HomeAssistant,
     entry: MovistarAskeyConfigEntry,
 ) -> None:
-    """
-    Apply changed options with a single reload.
-
-    Enabling client sensors makes Home Assistant reload the entry about 30
-    seconds later. When that happens, it also applies the new options, so an
-    immediate reload here would only add a second interruption.
-    """
-    if async_sync_signal_sensors(hass, entry):
-        _LOGGER.debug("Options applied by the pending entity-enable reload")
-        return
+    """Apply changed options and synchronize entities with a reload."""
+    async_sync_signal_sensors(hass, entry)
     await hass.config_entries.async_reload(entry.entry_id)
 
 
