@@ -81,15 +81,17 @@ def async_sync_signal_sensors(hass: HomeAssistant, entry: ConfigEntry) -> int:
     registry = er.async_get(hass)
     tracked_devices: list[str] | None = entry.options.get(CONF_TRACKED_DEVICES)
     entries = er.async_entries_for_config_entry(registry, entry.entry_id)
+    coordinator = getattr(entry, "runtime_data", None)
 
     # First pass: synchronize device trackers
-    if tracked_devices is not None:
+    if tracked_devices:
         tracked_set = set(tracked_devices)
         for entity in entries:
             if entity.domain != Platform.DEVICE_TRACKER:
                 continue
             mac = entity.unique_id
-            if mac in tracked_set:
+            is_person = bool(coordinator.person_names(mac)) if coordinator else False
+            if mac in tracked_set or is_person:
                 if entity.disabled_by is not None:
                     registry.async_update_entity(entity.entity_id, disabled_by=None)
                     enabled += 1
@@ -99,6 +101,13 @@ def async_sync_signal_sensors(hass: HomeAssistant, entry: ConfigEntry) -> int:
                         entity.entity_id,
                         disabled_by=er.RegistryEntryDisabler.INTEGRATION,
                     )
+    else:
+        for entity in entries:
+            if entity.domain != Platform.DEVICE_TRACKER:
+                continue
+            if entity.disabled_by and entity.disabled_by.value == _INTEGRATION:
+                registry.async_update_entity(entity.entity_id, disabled_by=None)
+                enabled += 1
 
     # Second pass: synchronize companion sensors
     if mode != SIGNAL_SENSORS_MANUAL:

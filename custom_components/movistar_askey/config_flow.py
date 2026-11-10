@@ -21,7 +21,6 @@ from .const import (
     DEFAULT_HOST,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SIGNAL_SENSORS,
-    DEFAULT_TRACKED_DEVICES,
     DOMAIN,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
@@ -125,7 +124,6 @@ class MovistarAskeyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     options={
                         CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
                         CONF_CONSIDER_HOME: DEFAULT_CONSIDER_HOME,
-                        CONF_TRACKED_DEVICES: DEFAULT_TRACKED_DEVICES,
                     },
                 )
         return self.async_show_form(
@@ -153,10 +151,6 @@ class MovistarAskeyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_CONSIDER_HOME: import_data.get(
                     CONF_CONSIDER_HOME,
                     DEFAULT_CONSIDER_HOME,
-                ),
-                CONF_TRACKED_DEVICES: import_data.get(
-                    CONF_TRACKED_DEVICES,
-                    DEFAULT_TRACKED_DEVICES,
                 ),
             },
         )
@@ -277,12 +271,14 @@ class MovistarAskeyOptionsFlow(config_entries.OptionsFlow):
 
         device_options.sort(key=lambda opt: opt["label"].lower())
 
-        if current_tracked is not None:
+        if current_tracked:
             suggested_tracked = current_tracked
         else:
             suggested_tracked = [
                 mac for mac in known_macs if _is_tracker_enabled(registry, mac)
             ]
+            if not suggested_tracked:
+                suggested_tracked = list(known_macs)
 
         options_schema = vol.Schema(
             {

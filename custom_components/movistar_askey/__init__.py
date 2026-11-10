@@ -87,7 +87,8 @@ async def async_setup_entry(
             **repeater_device_info(entry),
         )
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-    async_sync_signal_sensors(hass, entry)
+    if async_sync_signal_sensors(hass, entry):
+        entry.async_create_task(hass, hass.config_entries.async_reload(entry.entry_id))
     async_track_tracker_changes(hass, entry)
     return True
 

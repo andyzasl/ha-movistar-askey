@@ -61,9 +61,11 @@ class MovistarAskeyDeviceTracker(
     def entity_registry_enabled_default(self) -> bool:
         """Return whether the tracker is enabled by default."""
         tracked = self.coordinator.config_entry.options.get(CONF_TRACKED_DEVICES)
-        if tracked is not None:
-            return self._mac in tracked
-        return False
+        if tracked:
+            return self._mac in tracked or bool(
+                self.coordinator.person_names(self._mac)
+            )
+        return True
 
     @callback
     def _handle_coordinator_update(self) -> None:

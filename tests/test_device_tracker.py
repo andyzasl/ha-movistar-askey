@@ -51,9 +51,9 @@ def test_device_tracker_entity_defaults() -> None:
     device = _make_device()
     coord = _make_coordinator(device)
 
-    # By default, without tracked_devices configured, new trackers start disabled
+    # By default, without tracked_devices configured, new trackers start enabled
     tracker = MovistarAskeyDeviceTracker(coord, device.mac)
-    assert tracker.entity_registry_enabled_default is False
+    assert tracker.entity_registry_enabled_default is True
     assert tracker.has_entity_name is True
     assert tracker.unique_id == device.mac
     assert tracker.mac_address == device.mac
@@ -61,10 +61,21 @@ def test_device_tracker_entity_defaults() -> None:
     assert tracker.ip_address == device.ip
     assert tracker.source_type == SourceType.ROUTER
 
-    # When device is in tracked_devices, it starts enabled
+    # When tracked_devices is set and client is NOT in it, it starts disabled
+    coord.config_entry.options = {"tracked_devices": ["OTHER_MAC"]}
+    tracker_disabled = MovistarAskeyDeviceTracker(coord, device.mac)
+    assert tracker_disabled.entity_registry_enabled_default is False
+
+    # When client is in tracked_devices, it starts enabled
     coord.config_entry.options = {"tracked_devices": [device.mac]}
     tracker_enabled = MovistarAskeyDeviceTracker(coord, device.mac)
     assert tracker_enabled.entity_registry_enabled_default is True
+
+    # When client is not in tracked_devices but assigned to a person, it stays enabled
+    coord.config_entry.options = {"tracked_devices": ["OTHER_MAC"]}
+    coord.person_names.return_value = ["Alice"]
+    tracker_person = MovistarAskeyDeviceTracker(coord, device.mac)
+    assert tracker_person.entity_registry_enabled_default is True
 
 
 def test_device_tracker_connection_states() -> None:

@@ -51,6 +51,7 @@ def test_async_sync_signal_sensors_syncs_trackers() -> None:
             "signal_sensors": "all",
             "tracked_devices": ["AA:BB:CC:DD:EE:01"],
         },
+        runtime_data=None,
     )
 
     tracker_selected_disabled = MagicMock(
@@ -85,4 +86,35 @@ def test_async_sync_signal_sensors_syncs_trackers() -> None:
     )
     registry.async_update_entity.assert_any_call(
         "device_tracker.plug", disabled_by=er.RegistryEntryDisabler.INTEGRATION
+    )
+
+
+def test_async_sync_signal_sensors_reenables_all_when_unconfigured() -> None:
+    """When tracked_devices is unset, integration-disabled trackers are restored."""
+    hass = MagicMock()
+    entry = MagicMock(entry_id="entry1", options={}, runtime_data=None)
+
+    tracker_disabled = MagicMock(
+        domain=Platform.DEVICE_TRACKER,
+        unique_id="AA:BB:CC:DD:EE:01",
+        entity_id="device_tracker.phone",
+        disabled_by=er.RegistryEntryDisabler.INTEGRATION,
+    )
+
+    registry = MagicMock()
+    with (
+        patch(
+            "custom_components.movistar_askey.signal.er.async_get",
+            return_value=registry,
+        ),
+        patch(
+            "custom_components.movistar_askey.signal.er.async_entries_for_config_entry",
+            return_value=[tracker_disabled],
+        ),
+    ):
+        enabled = async_sync_signal_sensors(hass, entry)
+
+    assert enabled == 1
+    registry.async_update_entity.assert_called_once_with(
+        "device_tracker.phone", disabled_by=None
     )

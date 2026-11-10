@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## 3.1.1
+
+- Ensure device trackers are enabled by default on initial install and updates until the user customizes their selection in Configure options.
+- Automatically restore integration-disabled device trackers on setup so they appear in Home Assistant states immediately without requiring manual configuration.
+- Prevent trackers assigned to a Person in Home Assistant from being inadvertently disabled.
+
 ## 3.1.0
 
 - Add interactive device picker to **Configure** options (`Settings → Devices & services → Movistar Askey Router → Configure`), allowing users to select exactly which devices (Wi-Fi, Ethernet, repeater) to track for presence.
