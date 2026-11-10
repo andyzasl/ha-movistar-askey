@@ -10,6 +10,7 @@ from homeassistant.helpers import entity_registry as er
 from .const import (
     CLIENT_SENSOR_UNIQUE_ID_SUFFIXES,
     CONF_SIGNAL_SENSORS,
+    CONF_TRACKED_DEVICES,
     DEFAULT_SIGNAL_SENSORS,
     DOMAIN,
     SIGNAL_SENSORS_ALL,
@@ -78,38 +79,53 @@ def async_sync_signal_sensors(hass: HomeAssistant, entry: ConfigEntry) -> int:
     mode = signal_sensor_mode(entry)
     enabled = 0
     registry = er.async_get(hass)
-    for entity in er.async_entries_for_config_entry(registry, entry.entry_id):
-        if entity.domain == Platform.DEVICE_TRACKER:
-            if entity.disabled_by and entity.disabled_by.value == _INTEGRATION:
-                registry.async_update_entity(entity.entity_id, disabled_by=None)
-                enabled += 1
-            continue
+    tracked_devices: list[str] | None = entry.options.get(CONF_TRACKED_DEVICES)
+    entries = er.async_entries_for_config_entry(registry, entry.entry_id)
 
-        if entity.domain != Platform.SENSOR:
-            continue
-        if mode == SIGNAL_SENSORS_MANUAL:
-            continue
-        suffix = next(
-            (
-                s
-                for s in CLIENT_SENSOR_UNIQUE_ID_SUFFIXES
-                if entity.unique_id.endswith(s)
-            ),
-            None,
-        )
-        if suffix is None:
-            continue
-        mac = entity.unique_id.removesuffix(suffix)
-        current = entity.disabled_by.value if entity.disabled_by else None
-        wanted = desired_disabled_by(mode, _tracker_enabled(registry, mac), current)
-        if wanted == NO_CHANGE:
-            continue
-        if wanted is None:
-            enabled += 1
-        registry.async_update_entity(
-            entity.entity_id,
-            disabled_by=er.RegistryEntryDisabler(wanted) if wanted else None,
-        )
+    # First pass: synchronize device trackers
+    if tracked_devices is not None:
+        tracked_set = set(tracked_devices)
+        for entity in entries:
+            if entity.domain != Platform.DEVICE_TRACKER:
+                continue
+            mac = entity.unique_id
+            if mac in tracked_set:
+                if entity.disabled_by is not None:
+                    registry.async_update_entity(entity.entity_id, disabled_by=None)
+                    enabled += 1
+            else:
+                if entity.disabled_by is None:
+                    registry.async_update_entity(
+                        entity.entity_id,
+                        disabled_by=er.RegistryEntryDisabler.INTEGRATION,
+                    )
+
+    # Second pass: synchronize companion sensors
+    if mode != SIGNAL_SENSORS_MANUAL:
+        for entity in entries:
+            if entity.domain != Platform.SENSOR:
+                continue
+            suffix = next(
+                (
+                    s
+                    for s in CLIENT_SENSOR_UNIQUE_ID_SUFFIXES
+                    if entity.unique_id.endswith(s)
+                ),
+                None,
+            )
+            if suffix is None:
+                continue
+            mac = entity.unique_id.removesuffix(suffix)
+            current = entity.disabled_by.value if entity.disabled_by else None
+            wanted = desired_disabled_by(mode, _tracker_enabled(registry, mac), current)
+            if wanted == NO_CHANGE:
+                continue
+            if wanted is None:
+                enabled += 1
+            registry.async_update_entity(
+                entity.entity_id,
+                disabled_by=er.RegistryEntryDisabler(wanted) if wanted else None,
+            )
     return enabled
 
 

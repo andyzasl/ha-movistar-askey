@@ -7,6 +7,8 @@ DOMAIN: Final = "movistar_askey"
 CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_CONSIDER_HOME: Final = "consider_home"
 CONF_SIGNAL_SENSORS: Final = "signal_sensors"
+CONF_TRACKED_DEVICES: Final = "tracked_devices"
+DEFAULT_TRACKED_DEVICES: Final[list[str]] = []
 
 SIGNAL_SENSORS_MANUAL: Final = "manual"
 SIGNAL_SENSORS_FOLLOW_TRACKER: Final = "follow_tracker"

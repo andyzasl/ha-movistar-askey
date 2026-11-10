@@ -52,11 +52,13 @@
         "data": {
           "scan_interval": "Intervalo de consulta",
           "consider_home": "Periodo de gracia de presencia",
+          "tracked_devices": "Dispositivos rastreados (presencia)",
           "signal_sensors": "Sensores de cliente (señal Wi-Fi, dirección IP, persona, cambios de punto de acceso)"
         },
         "data_description": {
           "scan_interval": "Cada cuánto se consulta el router. Por defecto 300 segundos (5 minutos); mínimo 30.",
           "consider_home": "Cuánto tiempo sigue en casa un dispositivo tras la última detección. Nunca menor que el intervalo de consulta. Por defecto 600 segundos.",
+          "tracked_devices": "Selecciona los dispositivos para rastrear su presencia (por ej. teléfonos o tabletas). Solo los dispositivos seleccionados tendrán un rastreador activo disponible para asignar a una Persona.",
           "signal_sensors": "Manual: activa cada sensor tú mismo. Seguir rastreador: los sensores de un cliente se activan mientras su rastreador esté activado. Todos: cada cliente tiene sensores activados. Los sensores que desactives tú nunca se reactivan."
         }
       }

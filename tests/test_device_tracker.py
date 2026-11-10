@@ -40,23 +40,31 @@ def _make_coordinator(
     coord.display_name.return_value = device.name
     coord.person_names.return_value = []
     coord.consider_home = consider_home
-    coord.config_entry = MagicMock(unique_id="192.168.1.1", entry_id="test_entry")
+    coord.config_entry = MagicMock(
+        unique_id="192.168.1.1", entry_id="test_entry", options={}
+    )
     return coord
 
 
 def test_device_tracker_entity_defaults() -> None:
-    """Device trackers start enabled by default and follow standard naming."""
+    """Device trackers enabled default respects tracked_devices configuration."""
     device = _make_device()
     coord = _make_coordinator(device)
-    tracker = MovistarAskeyDeviceTracker(coord, device.mac)
 
-    assert tracker.entity_registry_enabled_default is True
+    # By default, without tracked_devices configured, new trackers start disabled
+    tracker = MovistarAskeyDeviceTracker(coord, device.mac)
+    assert tracker.entity_registry_enabled_default is False
     assert tracker.has_entity_name is True
     assert tracker.unique_id == device.mac
     assert tracker.mac_address == device.mac
     assert tracker.hostname == device.name
     assert tracker.ip_address == device.ip
     assert tracker.source_type == SourceType.ROUTER
+
+    # When device is in tracked_devices, it starts enabled
+    coord.config_entry.options = {"tracked_devices": [device.mac]}
+    tracker_enabled = MovistarAskeyDeviceTracker(coord, device.mac)
+    assert tracker_enabled.entity_registry_enabled_default is True
 
 
 def test_device_tracker_connection_states() -> None:

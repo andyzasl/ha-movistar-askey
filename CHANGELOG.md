@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here.
 
+## 3.1.0
+
+- Add interactive device picker to **Configure** options (`Settings → Devices & services → Movistar Askey Router → Configure`), allowing users to select exactly which devices (Wi-Fi, Ethernet, repeater) to track for presence.
+- Automatically enable presence trackers for selected devices and keep unselected devices disabled to eliminate entity clutter, state churn, and database noise.
+- Companion client sensors in `follow_tracker` mode now seamlessly follow the device picker selection.
+- Add test suite for config flow and options flow.
+
 ## 3.0.1
 
 - Enable device tracker entities by default for all connected clients, allowing immediate assignment to a Person for presence tracking in Home Assistant.

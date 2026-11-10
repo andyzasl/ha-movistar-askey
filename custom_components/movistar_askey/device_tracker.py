@@ -11,6 +11,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from .clients import access_point_name
+from .const import CONF_TRACKED_DEVICES
 from .coordinator import MovistarAskeyCoordinator
 
 _CONNECTION_TYPES = {"WIFI": "wifi", "ETH": "ethernet"}
@@ -45,7 +46,6 @@ class MovistarAskeyDeviceTracker(
 ):
     """Represent a network client detected by the router."""
 
-    _attr_entity_registry_enabled_default = True
     _attr_has_entity_name = True
     _attr_name = None
     _attr_source_type = SourceType.ROUTER
@@ -56,6 +56,14 @@ class MovistarAskeyDeviceTracker(
         self._mac = mac
         self._attr_unique_id = mac
         self._cached_device = coordinator.data[mac]
+
+    @property
+    def entity_registry_enabled_default(self) -> bool:
+        """Return whether the tracker is enabled by default."""
+        tracked = self.coordinator.config_entry.options.get(CONF_TRACKED_DEVICES)
+        if tracked is not None:
+            return self._mac in tracked
+        return False
 
     @callback
     def _handle_coordinator_update(self) -> None:

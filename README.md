@@ -88,16 +88,17 @@ entities:
 
 #### Device trackers
 
-The integration creates a tracker entity when it first observes a client MAC address.
-Trackers are **enabled by default** for network presence tracking and can immediately
-be assigned to a person in **Settings → People → [Person Name] → Track device**.
+Because home networks typically have dozens of static devices (smart plugs, light bulbs, TVs)
+that never leave the home, the integration lets you select exactly which devices to track for
+presence directly in the integration's configuration:
 
-If there are devices you do not wish to track (such as smart plugs or IoT gadgets),
-you can disable them at any time:
+1. Open **Settings → Devices & services → Movistar Askey Router → Configure**.
+2. Under **Tracked devices (presence tracking)**, select the devices you wish to track (e.g. phones or tablets). Any device detected by the router (Wi-Fi, Ethernet, or repeater) can be selected.
+3. Click **Submit**.
 
-1. Open **Settings → Devices & services → Movistar Askey Router → Entities** (or navigate to the device card).
-2. Select the relevant device tracker entity.
-3. Toggle **Enable entity** off in the entity settings and click **Update**.
+Only your selected devices will have active presence trackers, which can immediately be assigned
+to a person in **Settings → People → [Person Name] → Track device**. All other devices remain
+disabled by the integration to prevent entity clutter and unnecessary polling churn.
 
 Each tracker exposes the latest hostname, IPv4 address, and MAC address. A
 client remains `home` for the configured presence-grace period after it stops

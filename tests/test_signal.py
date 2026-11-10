@@ -42,20 +42,28 @@ def test_desired_disabled_by(
     assert desired_disabled_by(mode, tracker_enabled, current) == expected
 
 
-def test_async_sync_signal_sensors_reenables_trackers() -> None:
-    """Trackers disabled by integration are restored to enabled status."""
+def test_async_sync_signal_sensors_syncs_trackers() -> None:
+    """Trackers follow tracked_devices configuration."""
     hass = MagicMock()
-    entry = MagicMock(entry_id="entry1", options={"signal_sensors": "all"})
+    entry = MagicMock(
+        entry_id="entry1",
+        options={
+            "signal_sensors": "all",
+            "tracked_devices": ["AA:BB:CC:DD:EE:01"],
+        },
+    )
 
-    tracker_integration_disabled = MagicMock(
+    tracker_selected_disabled = MagicMock(
         domain=Platform.DEVICE_TRACKER,
+        unique_id="AA:BB:CC:DD:EE:01",
         entity_id="device_tracker.phone",
         disabled_by=er.RegistryEntryDisabler.INTEGRATION,
     )
-    tracker_user_disabled = MagicMock(
+    tracker_unselected_enabled = MagicMock(
         domain=Platform.DEVICE_TRACKER,
+        unique_id="AA:BB:CC:DD:EE:02",
         entity_id="device_tracker.plug",
-        disabled_by=er.RegistryEntryDisabler.USER,
+        disabled_by=None,
     )
 
     registry = MagicMock()
@@ -66,12 +74,15 @@ def test_async_sync_signal_sensors_reenables_trackers() -> None:
         ),
         patch(
             "custom_components.movistar_askey.signal.er.async_entries_for_config_entry",
-            return_value=[tracker_integration_disabled, tracker_user_disabled],
+            return_value=[tracker_selected_disabled, tracker_unselected_enabled],
         ),
     ):
         enabled = async_sync_signal_sensors(hass, entry)
 
     assert enabled == 1
-    registry.async_update_entity.assert_called_once_with(
+    registry.async_update_entity.assert_any_call(
         "device_tracker.phone", disabled_by=None
+    )
+    registry.async_update_entity.assert_any_call(
+        "device_tracker.plug", disabled_by=er.RegistryEntryDisabler.INTEGRATION
     )

@@ -52,11 +52,13 @@
         "data": {
           "scan_interval": "Polling interval",
           "consider_home": "Presence grace period",
+          "tracked_devices": "Tracked devices (presence tracking)",
           "signal_sensors": "Client sensors (Wi-Fi signal, IP address, person, roams)"
         },
         "data_description": {
           "scan_interval": "How often the router is polled. Default 300 seconds (5 minutes); minimum 30.",
           "consider_home": "How long a client stays home after it was last seen. Never shorter than the polling interval. Default 600 seconds.",
+          "tracked_devices": "Select the devices to track for presence (e.g. phones or tablets). Only selected devices will have active presence trackers available to assign to a Person.",
           "signal_sensors": "Manual: enable each sensor yourself. Follow tracker: a client's sensors are enabled while its device tracker is enabled. All: every client gets enabled sensors. Sensors you disabled yourself are never re-enabled."
         }
       }
