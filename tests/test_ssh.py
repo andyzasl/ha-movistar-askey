@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 import asyncssh
 import pytest
 
+from custom_components.movistar_askey.clients import display_name, update_suffixed
 from custom_components.movistar_askey.router import (
     LINK_REPEATER,
     LINK_ROUTER_5GHZ,
@@ -226,6 +227,44 @@ wifi_plus station_info
     assert wifi_clients["C6:86:EC:9E:BB:1A"].rssi == -48
     assert "2.4 GHz" in radios
     assert "5 GHz" in radios
+
+
+def test_web_and_ssh_naming_parity() -> None:
+    """Device names and suffixes produced by SSH match Web method identically."""
+    ssh_output = """dhcp_table
+192.168.1.34 8A:DE:79:12:F0:06 dynamic 40012 WiFi 5 GHz SSID iPhone true
+192.168.1.35 C6:86:EC:9E:BB:1A dynamic 40032 WiFi 5 GHz SSID iPhone false
+192.168.1.41 DE:48:DB:E8:5F:C4 dynamic 39990 WiFi 5 GHz SSID Mac true
+192.168.1.43 CE:FD:DE:2D:81:7E dynamic 39990 WiFi 5 GHz SSID iPhone true
+192.168.1.51 2E:47:93:F1:D8:0C dynamic 39990 WiFi 5 GHz SSID Mac true
+192.168.1.135 90:09:D0:26:02:11 dynamic 39917 Ethernet SynHome true
+Mesh Level N0
+wifi_plus station_info
+192.168.1.41 DE:48:DB:E8:5F:C4 SSID Mac -50
+192.168.1.51 2E:47:93:F1:D8:0C SSID Mac -75
+192.168.1.34 8A:DE:79:12:F0:06 SSID iPhone -49
+192.168.1.43 CE:FD:DE:2D:81:7E SSID iPhone -49
+eth2_device information
+192.168.1.135 90:09:D0:26:02:11
+Mesh Level N1(2GHz)
+Agent (B0:14:DF:07:9F:10)
+Connected to (8A:33:74:3D:FF:5F)
+wifi_plus station_info
+192.168.1.35 C6:86:EC:9E:BB:1A SSID iPhone -48
+"""
+    ssh_devs, _, _ = parse_ssh_map_info(ssh_output)
+    suffixed = update_suffixed(ssh_devs, set())
+    names = {mac: display_name(d, suffixed) for mac, d in ssh_devs.items()}
+
+    # Duplicate device names are suffixed identically to Web polling
+    assert names["8A:DE:79:12:F0:06"] == "iPhone (F0:06)"
+    assert names["C6:86:EC:9E:BB:1A"] == "iPhone (BB:1A)"
+    assert names["CE:FD:DE:2D:81:7E"] == "iPhone (81:7E)"
+    assert names["DE:48:DB:E8:5F:C4"] == "Mac (5F:C4)"
+    assert names["2E:47:93:F1:D8:0C"] == "Mac (D8:0C)"
+
+    # Single unique devices are not suffixed
+    assert names["90:09:D0:26:02:11"] == "SynHome"
 
 
 @pytest.mark.anyio
