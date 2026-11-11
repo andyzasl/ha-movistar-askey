@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## 3.2.1
+
+- Ensure SSH process and connection channels are cleanly closed and awaited (`wait_closed()`) during integration unload, reload, and reconnections.
+- Bind connection object immediately on connect to prevent socket leaks if process creation or prompt handshake times out.
+- Add fallback to `conn.abort()` if connection termination times out.
+
 ## 3.2.0
 
 - Add optional SSH polling method using the router's restricted CLI (`aspsh` / `Reduced_CLI_HGU_v28`) to eliminate router-side web server memory leaks.
