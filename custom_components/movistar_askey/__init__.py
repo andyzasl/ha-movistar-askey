@@ -14,17 +14,27 @@ from homeassistant.helpers import issue_registry as ir
 
 from .const import (
     CONF_CONSIDER_HOME,
+    CONF_POLL_METHOD,
     CONF_SCAN_INTERVAL,
+    CONF_SSH_KEY_FILE,
+    CONF_SSH_PASSWORD,
+    CONF_SSH_PORT,
+    CONF_SSH_USERNAME,
     DEFAULT_CONSIDER_HOME,
+    DEFAULT_POLL_METHOD,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_SSH_PORT,
+    DEFAULT_SSH_USERNAME,
     DOMAIN,
     ISSUE_ROUTER_UNREACHABLE,
+    POLL_METHOD_SSH,
 )
 from .coordinator import MovistarAskeyCoordinator
 from .device import repeater_device_info, router_device_info
 from .migration import migrate_options_v1, migrate_tracker_unique_id_v1
 from .router import NODE_REPEATER, MovistarAskeyClient
 from .signal import async_sync_signal_sensors, async_track_tracker_changes
+from .ssh import MovistarAskeySSHClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -43,13 +53,40 @@ async def async_setup_entry(
     entry: MovistarAskeyConfigEntry,
 ) -> bool:
     """Set up a Movistar Askey router from a config entry."""
-    connector = aiohttp.TCPConnector(force_close=True)
-    session = aiohttp.ClientSession(connector=connector)
-    client = MovistarAskeyClient(
-        session=session,
-        host=entry.data[CONF_HOST],
-        password=entry.data[CONF_PASSWORD],
+    poll_method = entry.options.get(
+        CONF_POLL_METHOD,
+        entry.data.get(CONF_POLL_METHOD, DEFAULT_POLL_METHOD),
     )
+    if poll_method == POLL_METHOD_SSH:
+        client: MovistarAskeyClient | MovistarAskeySSHClient = MovistarAskeySSHClient(
+            host=entry.data[CONF_HOST],
+            password=entry.options.get(CONF_SSH_PASSWORD)
+            or entry.data.get(CONF_SSH_PASSWORD)
+            or entry.data[CONF_PASSWORD],
+            username=entry.options.get(
+                CONF_SSH_USERNAME,
+                entry.data.get(CONF_SSH_USERNAME, DEFAULT_SSH_USERNAME),
+            ),
+            port=int(
+                entry.options.get(
+                    CONF_SSH_PORT,
+                    entry.data.get(CONF_SSH_PORT, DEFAULT_SSH_PORT),
+                )
+            ),
+            key_file=entry.options.get(
+                CONF_SSH_KEY_FILE,
+                entry.data.get(CONF_SSH_KEY_FILE),
+            ),
+        )
+    else:
+        connector = aiohttp.TCPConnector(force_close=True)
+        session = aiohttp.ClientSession(connector=connector)
+        client = MovistarAskeyClient(
+            session=session,
+            host=entry.data[CONF_HOST],
+            password=entry.data[CONF_PASSWORD],
+        )
+
     coordinator = MovistarAskeyCoordinator(
         hass=hass,
         config_entry=entry,
@@ -61,7 +98,7 @@ async def async_setup_entry(
     try:
         await coordinator.async_config_entry_first_refresh()
     except Exception:
-        await session.close()
+        await client.async_close()
         raise
 
     entry.runtime_data = coordinator

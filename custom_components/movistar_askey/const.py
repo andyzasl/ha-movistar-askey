@@ -8,6 +8,19 @@ CONF_SCAN_INTERVAL: Final = "scan_interval"
 CONF_CONSIDER_HOME: Final = "consider_home"
 CONF_SIGNAL_SENSORS: Final = "signal_sensors"
 CONF_TRACKED_DEVICES: Final = "tracked_devices"
+CONF_POLL_METHOD: Final = "poll_method"
+CONF_SSH_PORT: Final = "ssh_port"
+CONF_SSH_USERNAME: Final = "ssh_username"
+CONF_SSH_PASSWORD: Final = "ssh_password"
+CONF_SSH_KEY_FILE: Final = "ssh_key_file"
+
+POLL_METHOD_WEB: Final = "web"
+POLL_METHOD_SSH: Final = "ssh"
+POLL_METHODS: Final = (POLL_METHOD_WEB, POLL_METHOD_SSH)
+DEFAULT_POLL_METHOD: Final = POLL_METHOD_WEB
+
+DEFAULT_SSH_PORT: Final = 22
+DEFAULT_SSH_USERNAME: Final = "1234"
 
 SIGNAL_SENSORS_MANUAL: Final = "manual"
 SIGNAL_SENSORS_FOLLOW_TRACKER: Final = "follow_tracker"

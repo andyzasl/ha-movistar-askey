@@ -7,11 +7,29 @@
         "description": "Introduce la dirección y la contraseña de administración web del router.",
         "data": {
           "host": "Dirección IP del router",
-          "password": "Contraseña de administración"
+          "password": "Contraseña de administración",
+          "poll_method": "Método de consulta"
         },
         "data_description": {
           "host": "Normalmente 192.168.1.1.",
-          "password": "La contraseña de administración web del router, no la del Wi-Fi."
+          "password": "La contraseña de administración web del router, no la del Wi-Fi.",
+          "poll_method": "Interfaz web (HTTP) o consola SSH. SSH consulta directamente la CLI del router sin provocar fugas de memoria en su servidor web."
+        }
+      },
+      "ssh": {
+        "title": "Configurar conexión SSH",
+        "description": "Configura la conexión por terminal SSH con tu router Movistar Askey.",
+        "data": {
+          "ssh_username": "Usuario SSH",
+          "ssh_password": "Contraseña SSH (opcional)",
+          "ssh_port": "Puerto SSH",
+          "ssh_key_file": "Ruta de la clave privada SSH (opcional)"
+        },
+        "data_description": {
+          "ssh_username": "El usuario de acceso SSH del router. Por defecto 1234.",
+          "ssh_password": "Déjalo en blanco para usar la contraseña de administración introducida en el paso anterior.",
+          "ssh_port": "El puerto SSH del router. Por defecto 22.",
+          "ssh_key_file": "Ruta opcional al archivo de clave privada SSH."
         }
       },
       "reconfigure": {
@@ -53,13 +71,23 @@
           "scan_interval": "Intervalo de consulta",
           "consider_home": "Periodo de gracia de presencia",
           "tracked_devices": "Dispositivos rastreados (presencia)",
-          "signal_sensors": "Sensores de cliente (señal Wi-Fi, dirección IP, persona, cambios de punto de acceso)"
+          "signal_sensors": "Sensores de cliente (señal Wi-Fi, dirección IP, persona, cambios de punto de acceso)",
+          "poll_method": "Método de consulta",
+          "ssh_port": "Puerto SSH",
+          "ssh_username": "Usuario SSH",
+          "ssh_password": "Contraseña SSH (opcional)",
+          "ssh_key_file": "Ruta de la clave privada SSH (opcional)"
         },
         "data_description": {
           "scan_interval": "Cada cuánto se consulta el router. Por defecto 300 segundos (5 minutos); mínimo 30.",
           "consider_home": "Cuánto tiempo sigue en casa un dispositivo tras la última detección. Nunca menor que el intervalo de consulta. Por defecto 600 segundos.",
           "tracked_devices": "Selecciona los dispositivos para rastrear su presencia (por ej. teléfonos o tabletas). Solo los dispositivos seleccionados tendrán un rastreador activo disponible para asignar a una Persona.",
-          "signal_sensors": "Manual: activa cada sensor tú mismo. Seguir rastreador: los sensores de un cliente se activan mientras su rastreador esté activado. Todos: cada cliente tiene sensores activados. Los sensores que desactives tú nunca se reactivan."
+          "signal_sensors": "Manual: activa cada sensor tú mismo. Seguir rastreador: los sensores de un cliente se activan mientras su rastreador esté activado. Todos: cada cliente tiene sensores activados. Los sensores que desactives tú nunca se reactivan.",
+          "poll_method": "Interfaz web (HTTP) o consola SSH. SSH consulta directamente la CLI del router sin provocar fugas de memoria en su servidor web.",
+          "ssh_port": "El puerto SSH del router. Por defecto 22.",
+          "ssh_username": "El usuario de acceso SSH del router. Por defecto 1234.",
+          "ssh_password": "Déjalo en blanco para usar la contraseña de administración del router.",
+          "ssh_key_file": "Ruta opcional al archivo de clave privada SSH para autenticación."
         }
       }
     }
@@ -137,6 +165,12 @@
     }
   },
   "selector": {
+    "poll_method": {
+      "options": {
+        "web": "Interfaz web (HTTP)",
+        "ssh": "Consola SSH"
+      }
+    },
     "signal_sensors": {
       "options": {
         "manual": "Manual",

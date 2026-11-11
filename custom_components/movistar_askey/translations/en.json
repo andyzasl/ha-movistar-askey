@@ -7,11 +7,29 @@
         "description": "Enter the address and web-admin password for your router.",
         "data": {
           "host": "Router IP address",
-          "password": "Router admin password"
+          "password": "Router admin password",
+          "poll_method": "Polling method"
         },
         "data_description": {
           "host": "Usually 192.168.1.1.",
-          "password": "The router web-admin password, not the Wi-Fi password."
+          "password": "The router web-admin password, not the Wi-Fi password.",
+          "poll_method": "Web interface (HTTP) or SSH console. SSH directly queries the router CLI without triggering web server memory leaks."
+        }
+      },
+      "ssh": {
+        "title": "Configure SSH connection",
+        "description": "Configure the SSH terminal connection to your Movistar Askey router.",
+        "data": {
+          "ssh_username": "SSH username",
+          "ssh_password": "SSH password (optional)",
+          "ssh_port": "SSH port",
+          "ssh_key_file": "SSH private key path (optional)"
+        },
+        "data_description": {
+          "ssh_username": "The router SSH login username. Default 1234.",
+          "ssh_password": "Leave blank to use the router admin password entered in the previous step.",
+          "ssh_port": "The SSH port on the router. Default 22.",
+          "ssh_key_file": "Optional file path to an SSH private key."
         }
       },
       "reconfigure": {
@@ -53,13 +71,23 @@
           "scan_interval": "Polling interval",
           "consider_home": "Presence grace period",
           "tracked_devices": "Tracked devices (presence tracking)",
-          "signal_sensors": "Client sensors (Wi-Fi signal, IP address, person, roams)"
+          "signal_sensors": "Client sensors (Wi-Fi signal, IP address, person, roams)",
+          "poll_method": "Polling method",
+          "ssh_port": "SSH port",
+          "ssh_username": "SSH username",
+          "ssh_password": "SSH password (optional)",
+          "ssh_key_file": "SSH private key path (optional)"
         },
         "data_description": {
           "scan_interval": "How often the router is polled. Default 300 seconds (5 minutes); minimum 30.",
           "consider_home": "How long a client stays home after it was last seen. Never shorter than the polling interval. Default 600 seconds.",
           "tracked_devices": "Select the devices to track for presence (e.g. phones or tablets). Only selected devices will have active presence trackers available to assign to a Person.",
-          "signal_sensors": "Manual: enable each sensor yourself. Follow tracker: a client's sensors are enabled while its device tracker is enabled. All: every client gets enabled sensors. Sensors you disabled yourself are never re-enabled."
+          "signal_sensors": "Manual: enable each sensor yourself. Follow tracker: a client's sensors are enabled while its device tracker is enabled. All: every client gets enabled sensors. Sensors you disabled yourself are never re-enabled.",
+          "poll_method": "Web interface (HTTP) or SSH console. SSH directly queries the router CLI without triggering web server memory leaks.",
+          "ssh_port": "The SSH port on the router. Default 22.",
+          "ssh_username": "The router SSH login username. Default 1234.",
+          "ssh_password": "Leave blank to use the router admin password.",
+          "ssh_key_file": "Optional file path to an SSH private key for authentication."
         }
       }
     }
@@ -137,6 +165,12 @@
     }
   },
   "selector": {
+    "poll_method": {
+      "options": {
+        "web": "Web interface (HTTP)",
+        "ssh": "SSH console"
+      }
+    },
     "signal_sensors": {
       "options": {
         "manual": "Manual",

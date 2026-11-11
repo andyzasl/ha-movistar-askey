@@ -189,7 +189,10 @@ def summarize_capture(name: str, capture: Capture) -> dict[str, Any]:
         return info
     if capture.cookie_names:
         info["cookie_names"] = list(capture.cookie_names)
-    if name.endswith((".asp", ".cgi")):
+    if name.startswith("ssh:"):
+        info["output_length"] = len(capture.body)
+        info["lines"] = len(capture.body.splitlines())
+    elif name.endswith((".asp", ".cgi")):
         info["page"] = summarize_device_map(capture.body)
     else:
         info["response"] = summarize_xml(capture.body)

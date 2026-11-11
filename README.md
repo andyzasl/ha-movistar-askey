@@ -285,6 +285,23 @@ version).
 | Polling interval | 300 seconds | 30–3600 seconds | How often the router is polled |
 | Presence grace period | 600 seconds | 0–3600 seconds | How long a missing client remains `home` |
 | Client sensors | Manual | Manual, Follow tracker, All | Which per-client IP address, Wi-Fi signal, person and roam sensors are enabled |
+| Polling method | Web interface (HTTP) | Web interface (HTTP), SSH console | Protocol used to poll router state |
+| SSH port | 22 | 1–65535 | Router SSH port (when using SSH) |
+| SSH username | 1234 | Text | SSH login username (when using SSH) |
+| SSH password | _(empty)_ | Password | Optional SSH password; uses router admin password if blank |
+| SSH private key path | _(empty)_ | Text | Optional file path to private key for SSH authentication |
+
+### Polling via SSH (Avoiding Web Server Memory Leaks)
+
+Certain Movistar Askey firmware builds (such as the RTF8316VW running `GL_g1.18_R8316_V2.19`) can experience gradual memory growth in their embedded web server daemon when polled frequently over HTTP.
+
+To prevent web server memory exhaustion, the integration provides an optional **SSH console** polling method:
+1. Open **Settings → Devices & services → Movistar Askey Router → Configure**.
+2. Change **Polling method** to **SSH console**.
+3. Verify SSH connection settings (default user `1234`, port `22`, using the router web-admin password).
+4. Click **Submit**.
+
+The integration will connect via an interactive SSH PTY terminal (`asyncssh`), query read-only CLI commands (`show map_info` and `show sys_info`), and parse full mesh topology, client associations, signal levels, and router health—completely bypassing the router's web server.
 
 Internally, the effective presence grace period is never shorter than the
 polling interval. Saving options reloads the integration once.

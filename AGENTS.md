@@ -10,16 +10,17 @@ Continuation context and guidelines for AI coding assistants working on this rep
 
 * **Domain**: `movistar_askey`
 * **Type**: Hub / local polling integration (`local_polling`)
-* **Transport**: Local HTTP web interface scraping using `aiohttp` against endpoints like `/login.cgi`, `/device_data.cgi`, and `/status.cgi`.
+* **Transport**: Local HTTP web interface scraping using `aiohttp` against endpoints like `/login.cgi`, `/device_data.cgi`, and `/status.cgi`, or optional interactive SSH console using `asyncssh` against restricted CLI commands (`show map_info`, `show sys_info`) to circumvent router-side web server memory leaks.
 
 ---
 
 ## Core Architecture & Components
 
-### 1. Web Client & Data Parsing (`router.py`, `status.py`)
+### 1. Web & SSH Clients and Data Parsing (`router.py`, `ssh.py`, `status.py`)
 * `MovistarAskeyClient`: Authenticates and manages HTTP sessions with the router, handling session expiration and re-login automatically.
-* Extracts the active device table (`device_data.cgi`), decoding MAC, IP, interface, link status, and mesh attachment node (router vs. repeater, 2.4 GHz vs. 5 GHz).
-* `RouterStatus` & `WifiClient`: Parses Wi-Fi client details (signal RSSI, band, TX/RX packets) and system metrics (CPU, RAM, uptime, firmware, hardware versions).
+* `MovistarAskeySSHClient`: Connects via interactive SSH PTY terminal (`asyncssh`), executes safe read-only CLI commands (`show map_info`, `show sys_info`), parses mesh topology (router/repeater and 2.4/5 GHz associations), and bypasses HTTP server memory leaks.
+* Extracts the active device table, decoding MAC, IP, interface, link status, and mesh attachment node (router vs. repeater, 2.4 GHz vs. 5 GHz).
+* `RouterStatus` & `WifiClient`: Wi-Fi client details (signal RSSI, band, TX/RX packets) and system metrics (CPU, RAM, uptime, firmware, hardware versions).
 
 ### 2. Coordinator (`coordinator.py`)
 * `MovistarAskeyCoordinator`: Subclasses `DataUpdateCoordinator[dict[str, RouterDevice]]`.
@@ -75,13 +76,16 @@ ha-movistar-askey/
 │   ├── router.py            # HTTP client, session authentication, device table scraper
 │   ├── sensor.py            # Router health, roam counters, client signal & IP sensors
 │   ├── signal.py            # Client signal sensors enablement policy
+│   ├── ssh.py               # SSH interactive console client and topology parser
 │   ├── status.py            # Wi-Fi client details and system status parser
 │   ├── strings.json         # Base localization strings
 │   └── translations/        # English (en.json) and Spanish (es.json)
 ├── tests/                   # Pytest test suite
 │   ├── test_clients.py
+│   ├── test_config_flow.py
 │   ├── test_coordinator_roams.py
 │   ├── test_device.py
+│   ├── test_device_tracker.py
 │   ├── test_diag.py
 │   ├── test_event.py
 │   ├── test_logbook.py
@@ -89,6 +93,7 @@ ha-movistar-askey/
 │   ├── test_router.py
 │   ├── test_router_session.py
 │   ├── test_signal.py
+│   ├── test_ssh.py
 │   └── test_status.py
 ├── .github/workflows/
 │   ├── validate.yaml        # CI: Ruff lint, Ruff format, Pytest, Hassfest, HACS

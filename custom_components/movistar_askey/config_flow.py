@@ -14,16 +14,27 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_CONSIDER_HOME,
+    CONF_POLL_METHOD,
     CONF_SCAN_INTERVAL,
     CONF_SIGNAL_SENSORS,
+    CONF_SSH_KEY_FILE,
+    CONF_SSH_PASSWORD,
+    CONF_SSH_PORT,
+    CONF_SSH_USERNAME,
     CONF_TRACKED_DEVICES,
     DEFAULT_CONSIDER_HOME,
     DEFAULT_HOST,
+    DEFAULT_POLL_METHOD,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SIGNAL_SENSORS,
+    DEFAULT_SSH_PORT,
+    DEFAULT_SSH_USERNAME,
     DOMAIN,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
+    POLL_METHOD_SSH,
+    POLL_METHOD_WEB,
+    POLL_METHODS,
     SIGNAL_SENSOR_MODES,
 )
 from .router import CannotConnectError, InvalidAuthError, MovistarAskeyClient
@@ -35,6 +46,16 @@ def _user_schema(values: dict[str, Any] | None = None) -> vol.Schema:
         {
             vol.Required(CONF_HOST, default=values.get(CONF_HOST, DEFAULT_HOST)): str,
             vol.Required(CONF_PASSWORD, default=values.get(CONF_PASSWORD, "")): str,
+            vol.Required(
+                CONF_POLL_METHOD,
+                default=values.get(CONF_POLL_METHOD, DEFAULT_POLL_METHOD),
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=list(POLL_METHODS),
+                    translation_key=CONF_POLL_METHOD,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
         }
     )
 
@@ -51,7 +72,7 @@ def _seconds_selector(minimum: int) -> selector.NumberSelector:
     )
 
 
-_NUMERIC_OPTIONS = (CONF_SCAN_INTERVAL, CONF_CONSIDER_HOME)
+_NUMERIC_OPTIONS = (CONF_SCAN_INTERVAL, CONF_CONSIDER_HOME, CONF_SSH_PORT)
 
 
 def _is_tracker_enabled(registry: er.EntityRegistry, mac: str) -> bool:
@@ -86,10 +107,36 @@ async def _async_validate(host: str, password: str) -> None:
         await client.async_close()
 
 
+async def _async_validate_ssh(
+    host: str,
+    password: str,
+    username: str = DEFAULT_SSH_USERNAME,
+    port: int = DEFAULT_SSH_PORT,
+    key_file: str | None = None,
+) -> None:
+    from .ssh import MovistarAskeySSHClient
+
+    client = MovistarAskeySSHClient(
+        host=host,
+        password=password,
+        username=username,
+        port=port,
+        key_file=key_file,
+    )
+    try:
+        await client.async_test_credentials()
+    finally:
+        await client.async_close()
+
+
 class MovistarAskeyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Configure the router and migrate legacy YAML."""
 
     VERSION = 2
+
+    def __init__(self) -> None:
+        """Initialize the config flow."""
+        self._user_input: dict[str, Any] = {}
 
     @staticmethod
     @callback
@@ -107,8 +154,12 @@ class MovistarAskeyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             host = user_input[CONF_HOST].strip()
+            poll_method = user_input.get(CONF_POLL_METHOD, DEFAULT_POLL_METHOD)
             await self.async_set_unique_id(host)
             self._abort_if_unique_id_configured()
+            if poll_method == POLL_METHOD_SSH:
+                self._user_input = user_input
+                return await self.async_step_ssh()
             try:
                 await _async_validate(host, user_input[CONF_PASSWORD])
             except CannotConnectError:
@@ -124,11 +175,76 @@ class MovistarAskeyConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     options={
                         CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
                         CONF_CONSIDER_HOME: DEFAULT_CONSIDER_HOME,
+                        CONF_POLL_METHOD: POLL_METHOD_WEB,
                     },
                 )
         return self.async_show_form(
             step_id="user",
             data_schema=_user_schema(user_input),
+            errors=errors,
+        )
+
+    async def async_step_ssh(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Configure SSH connection parameters."""
+        errors: dict[str, str] = {}
+        host = self._user_input[CONF_HOST].strip()
+        default_pwd = self._user_input[CONF_PASSWORD]
+
+        if user_input is not None:
+            username = user_input.get(CONF_SSH_USERNAME, DEFAULT_SSH_USERNAME).strip()
+            password = user_input.get(CONF_SSH_PASSWORD) or default_pwd
+            port = int(user_input.get(CONF_SSH_PORT, DEFAULT_SSH_PORT))
+            key_file = user_input.get(CONF_SSH_KEY_FILE) or None
+            try:
+                await _async_validate_ssh(host, password, username, port, key_file)
+            except CannotConnectError:
+                errors["base"] = "cannot_connect"
+            except InvalidAuthError:
+                errors["base"] = "invalid_auth"
+            except Exception:
+                errors["base"] = "unknown"
+            else:
+                return self.async_create_entry(
+                    title=f"Movistar Askey Router ({host})",
+                    data={CONF_HOST: host, CONF_PASSWORD: default_pwd},
+                    options={
+                        CONF_SCAN_INTERVAL: DEFAULT_SCAN_INTERVAL,
+                        CONF_CONSIDER_HOME: DEFAULT_CONSIDER_HOME,
+                        CONF_POLL_METHOD: POLL_METHOD_SSH,
+                        CONF_SSH_USERNAME: username,
+                        CONF_SSH_PORT: port,
+                        CONF_SSH_PASSWORD: user_input.get(CONF_SSH_PASSWORD, ""),
+                        CONF_SSH_KEY_FILE: key_file or "",
+                    },
+                )
+
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_SSH_USERNAME, default=DEFAULT_SSH_USERNAME): str,
+                vol.Optional(CONF_SSH_PASSWORD, default=""): selector.TextSelector(
+                    selector.TextSelectorConfig(
+                        type=selector.TextSelectorType.PASSWORD,
+                    )
+                ),
+                vol.Required(
+                    CONF_SSH_PORT, default=DEFAULT_SSH_PORT
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=1,
+                        max=65535,
+                        step=1,
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
+                vol.Optional(CONF_SSH_KEY_FILE, default=""): selector.TextSelector(),
+            }
+        )
+        return self.async_show_form(
+            step_id="ssh",
+            data_schema=schema,
             errors=errors,
         )
 
@@ -227,6 +343,7 @@ class MovistarAskeyOptionsFlow(config_entries.OptionsFlow):
         user_input: dict[str, Any] | None = None,
     ) -> config_entries.ConfigFlowResult:
         """Display and store polling and presence options."""
+        errors: dict[str, str] = {}
         if user_input is not None:
             data = {
                 key: int(value) if key in _NUMERIC_OPTIONS else value
@@ -234,7 +351,26 @@ class MovistarAskeyOptionsFlow(config_entries.OptionsFlow):
             }
             if CONF_TRACKED_DEVICES not in data:
                 data[CONF_TRACKED_DEVICES] = []
-            return self.async_create_entry(data=data)
+
+            if data.get(CONF_POLL_METHOD) == POLL_METHOD_SSH:
+                host = self.config_entry.data[CONF_HOST]
+                username = data.get(CONF_SSH_USERNAME) or DEFAULT_SSH_USERNAME
+                password = data.get(CONF_SSH_PASSWORD) or self.config_entry.data.get(
+                    CONF_PASSWORD, ""
+                )
+                port = int(data.get(CONF_SSH_PORT) or DEFAULT_SSH_PORT)
+                key_file = data.get(CONF_SSH_KEY_FILE) or None
+                try:
+                    await _async_validate_ssh(host, password, username, port, key_file)
+                except CannotConnectError:
+                    errors["base"] = "cannot_connect"
+                except InvalidAuthError:
+                    errors["base"] = "invalid_auth"
+                except Exception:
+                    errors["base"] = "unknown"
+
+            if not errors:
+                return self.async_create_entry(data=data)
 
         coordinator = getattr(self.config_entry, "runtime_data", None)
         device_options: list[selector.SelectOptionDict] = []
@@ -306,6 +442,34 @@ class MovistarAskeyOptionsFlow(config_entries.OptionsFlow):
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
+                vol.Required(
+                    CONF_POLL_METHOD, default=DEFAULT_POLL_METHOD
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=list(POLL_METHODS),
+                        translation_key=CONF_POLL_METHOD,
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(
+                    CONF_SSH_PORT, default=DEFAULT_SSH_PORT
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=1,
+                        max=65535,
+                        step=1,
+                        mode=selector.NumberSelectorMode.BOX,
+                    )
+                ),
+                vol.Optional(
+                    CONF_SSH_USERNAME, default=DEFAULT_SSH_USERNAME
+                ): selector.TextSelector(),
+                vol.Optional(CONF_SSH_PASSWORD, default=""): selector.TextSelector(
+                    selector.TextSelectorConfig(
+                        type=selector.TextSelectorType.PASSWORD,
+                    )
+                ),
+                vol.Optional(CONF_SSH_KEY_FILE, default=""): selector.TextSelector(),
             }
         )
 
@@ -325,6 +489,26 @@ class MovistarAskeyOptionsFlow(config_entries.OptionsFlow):
                     CONF_SIGNAL_SENSORS,
                     DEFAULT_SIGNAL_SENSORS,
                 ),
+                CONF_POLL_METHOD: self.config_entry.options.get(
+                    CONF_POLL_METHOD,
+                    self.config_entry.data.get(CONF_POLL_METHOD, DEFAULT_POLL_METHOD),
+                ),
+                CONF_SSH_PORT: self.config_entry.options.get(
+                    CONF_SSH_PORT,
+                    self.config_entry.data.get(CONF_SSH_PORT, DEFAULT_SSH_PORT),
+                ),
+                CONF_SSH_USERNAME: self.config_entry.options.get(
+                    CONF_SSH_USERNAME,
+                    self.config_entry.data.get(CONF_SSH_USERNAME, DEFAULT_SSH_USERNAME),
+                ),
+                CONF_SSH_PASSWORD: self.config_entry.options.get(
+                    CONF_SSH_PASSWORD,
+                    self.config_entry.data.get(CONF_SSH_PASSWORD, ""),
+                ),
+                CONF_SSH_KEY_FILE: self.config_entry.options.get(
+                    CONF_SSH_KEY_FILE,
+                    self.config_entry.data.get(CONF_SSH_KEY_FILE, ""),
+                ),
             },
         )
-        return self.async_show_form(step_id="init", data_schema=schema)
+        return self.async_show_form(step_id="init", data_schema=schema, errors=errors)

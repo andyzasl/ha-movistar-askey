@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -46,6 +47,9 @@ from .router import (
     RouterStatus,
 )
 
+if TYPE_CHECKING:
+    from .ssh import MovistarAskeySSHClient
+
 _LOGGER = logging.getLogger(__name__)
 
 _BOOT_DRIFT = timedelta(seconds=120)
@@ -58,7 +62,7 @@ class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
         self,
         hass: HomeAssistant,
         config_entry: ConfigEntry,
-        client: MovistarAskeyClient,
+        client: MovistarAskeyClient | MovistarAskeySSHClient,
         scan_interval: int,
         consider_home: int,
     ) -> None:

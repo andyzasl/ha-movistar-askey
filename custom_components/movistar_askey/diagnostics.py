@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.redact import async_redact_data
 from homeassistant.loader import async_get_integration
 
-from .const import DOMAIN
+from .const import CONF_SSH_PASSWORD, DOMAIN
 from .diag import link_crosstab, summarize_capture
 
 
@@ -26,7 +26,9 @@ async def async_get_config_entry_diagnostics(
     last_error = coordinator.last_exception
     return {
         "integration_version": str(integration.version),
-        "config_entry": async_redact_data(entry.as_dict(), {CONF_PASSWORD}),
+        "config_entry": async_redact_data(
+            entry.as_dict(), {CONF_PASSWORD, CONF_SSH_PASSWORD}
+        ),
         "router_available": coordinator.last_update_success,
         "connected_device_count": len(coordinator.data or {}),
         "polling_interval_seconds": int(coordinator.update_interval.total_seconds()),
