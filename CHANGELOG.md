@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## 3.2.2
+
+- Fix device hostname extraction in SSH `show map_info`: properly extract device names (e.g. iPhone, MacBook) from `wifi station_info` and `eth_device` sections.
+- Filter out DHCP lease keywords (`dynamic`, `static`) to prevent devices from being erroneously named `dynamic (XX:XX)`.
+- Default to MAC address when a device does not broadcast an mDNS/DHCP hostname.
+
 ## 3.2.1
 
 - Ensure SSH process and connection channels are cleanly closed and awaited (`wait_closed()`) during integration unload, reload, and reconnections.

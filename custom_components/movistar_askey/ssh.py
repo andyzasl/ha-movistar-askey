@@ -51,6 +51,22 @@ SSH_COMMAND_MAP_INFO: Final = "show map_info"
 SSH_COMMAND_SYS_INFO: Final = "show sys_info"
 SSH_ALLOWED_COMMANDS: Final = frozenset({SSH_COMMAND_MAP_INFO, SSH_COMMAND_SYS_INFO})
 
+# Keywords in DHCP or station tables that represent lease types or placeholders,
+# not device hostnames.
+IGNORED_HOSTNAMES: Final = frozenset(
+    {
+        "dynamic",
+        "static",
+        "ignored",
+        "unknown",
+        "none",
+        "null",
+        "*",
+        "-",
+        "--",
+    }
+)
+
 MAX_RESPONSE: Final = 2 * 1024 * 1024
 
 
@@ -114,13 +130,19 @@ def parse_ssh_map_info(
             mac = parts[1].upper().replace("-", ":")
 
             if current_section == "dhcp":
-                if len(parts) >= 3 and parts[2] not in ("ignored", "*", "-"):
+                # dhcp_table format: IP MAC LEASE_TYPE [EXPIRY] [BOUND]
+                # Filter out lease types like 'dynamic'/'static' or digits.
+                if (
+                    len(parts) >= 3
+                    and parts[2].lower() not in IGNORED_HOSTNAMES
+                    and not parts[2].isdigit()
+                ):
                     dhcp_names[mac] = parts[2]
             elif (
                 current_section == "wifi"
                 and current_node is not None
                 and current_band is not None
-                and len(parts) >= 4
+                and len(parts) >= 3
             ):
                 rssi: int | None = None
                 try:
@@ -139,7 +161,18 @@ def parse_ssh_map_info(
                         else LINK_ROUTER_24GHZ
                     )
                 )
-                name = dhcp_names.get(mac, mac)
+
+                # Format: IP MAC SSID [hostname...] RSSI
+                # middle contains tokens between MAC and RSSI (or after MAC if no RSSI)
+                middle = parts[2:-1] if rssi is not None else parts[2:]
+                hostname: str | None = None
+                if len(middle) >= 2:
+                    # middle[0] is the SSID; remaining tokens are the device hostname
+                    candidate = " ".join(middle[1:]).strip()
+                    if candidate and candidate.lower() not in IGNORED_HOSTNAMES:
+                        hostname = candidate
+
+                name = hostname or dhcp_names.get(mac, mac)
                 devices[mac] = RouterDevice(
                     mac=mac,
                     ip=ip,
@@ -157,10 +190,20 @@ def parse_ssh_map_info(
                     associated_seconds=None,
                 )
             elif current_section == "eth":
-                hostname = (
-                    parts[2] if len(parts) >= 3 and parts[2] not in ("*", "-") else mac
+                # eth row format: IP MAC [hostname...] [status/rate]
+                has_trailing_metric = len(parts) >= 4 and (
+                    parts[-1].startswith("-")
+                    or parts[-1].isdigit()
+                    or parts[-1].endswith("M")
                 )
-                name = dhcp_names.get(mac, hostname)
+                middle = parts[2:-1] if has_trailing_metric else parts[2:]
+                candidate = " ".join(middle).strip() if middle else ""
+                hostname = (
+                    candidate
+                    if candidate and candidate.lower() not in IGNORED_HOSTNAMES
+                    else None
+                )
+                name = hostname or dhcp_names.get(mac, mac)
                 devices[mac] = RouterDevice(
                     mac=mac,
                     ip=ip,
@@ -172,7 +215,7 @@ def parse_ssh_map_info(
     if not seen_nodes and not devices:
         raise RouterParseError("Unrecognized or empty SSH map_info output")
 
-    # Update hostnames for any devices resolved via DHCP table
+    # Update hostnames for any devices that only resolved to fallback MAC name
     for mac, name in dhcp_names.items():
         if mac in devices and devices[mac].name == mac:
             dev = devices[mac]
