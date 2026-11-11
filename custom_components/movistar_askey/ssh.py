@@ -46,10 +46,18 @@ IP_RE: Final = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}$")
 PROMPT: Final = re.compile(r"(?:^|\n)[ \t]*>[ \t]*$")
 
 # Only allow-listed read-only commands may be executed over SSH.
-# Commands that print credentials (e.g. show wifi) must never be executed.
 SSH_COMMAND_MAP_INFO: Final = "show map_info"
 SSH_COMMAND_SYS_INFO: Final = "show sys_info"
-SSH_ALLOWED_COMMANDS: Final = frozenset({SSH_COMMAND_MAP_INFO, SSH_COMMAND_SYS_INFO})
+SSH_COMMAND_WIFI: Final = "show wifi"
+SSH_COMMAND_WIFI_PLUS: Final = "show wifi_plus"
+SSH_ALLOWED_COMMANDS: Final = frozenset(
+    {
+        SSH_COMMAND_MAP_INFO,
+        SSH_COMMAND_SYS_INFO,
+        SSH_COMMAND_WIFI,
+        SSH_COMMAND_WIFI_PLUS,
+    }
+)
 
 # Keywords in DHCP or station tables that represent lease types or placeholders,
 # not device hostnames.
@@ -353,6 +361,49 @@ def parse_ssh_sys_info(text: str) -> RouterSummary:
     )
 
 
+def sanitize_ssh_wifi_text(text: str) -> str:
+    """Redact sensitive fields (e.g. passwords) from Wi-Fi CLI output."""
+    return re.sub(
+        r"^(wifi(?:_plus)?\s+password\s+).+$",
+        r"\1[REDACTED]",
+        text,
+        flags=re.MULTILINE | re.IGNORECASE,
+    )
+
+
+def parse_ssh_wifi_radio(text: str, band: str) -> RadioInfo:
+    """Parse output of ``show wifi`` or ``show wifi_plus`` into RadioInfo."""
+    status_match = re.search(
+        r"wifi(?:_plus)?\d*_status\s+(on|off|enabled|disabled|1|0)",
+        text,
+        re.IGNORECASE,
+    )
+    enabled = True
+    if status_match:
+        enabled = status_match.group(1).lower() in ("on", "enabled", "1")
+
+    channel_match = re.search(
+        r"wifi(?:_plus)?\s+channel\s+(\d+)",
+        text,
+        re.IGNORECASE,
+    )
+    channel = int(channel_match.group(1)) if channel_match else None
+
+    bw_match = re.search(
+        r"wifi(?:_plus)?\s+bandwidth\s+(\d+)",
+        text,
+        re.IGNORECASE,
+    )
+    bandwidth_mhz = int(bw_match.group(1)) if bw_match else None
+
+    return RadioInfo(
+        band=band,
+        enabled=enabled,
+        channel=channel,
+        bandwidth_mhz=bandwidth_mhz,
+    )
+
+
 class MovistarAskeySSHClient:
     """Fetch router network map and status via interactive SSH console."""
 
@@ -395,6 +446,19 @@ class MovistarAskeySSHClient:
         )
         devices, wifi_clients, radios = parse_ssh_map_info(text)
         self._cached_wifi_clients = wifi_clients
+        # Preserve known radio channels and bandwidth if already discovered
+        for band, radio in radios.items():
+            if (
+                band in self._cached_radios
+                and self._cached_radios[band].channel is not None
+            ):
+                cached = self._cached_radios[band]
+                radios[band] = RadioInfo(
+                    band=band,
+                    enabled=radio.enabled,
+                    channel=cached.channel,
+                    bandwidth_mhz=cached.bandwidth_mhz,
+                )
         self._cached_radios = radios
         return devices
 
@@ -406,9 +470,26 @@ class MovistarAskeySSHClient:
             body=text,
         )
         summary = parse_ssh_sys_info(text)
+
+        radios = dict(self._cached_radios)
+        for cmd, band in (
+            (SSH_COMMAND_WIFI, BAND_24GHZ),
+            (SSH_COMMAND_WIFI_PLUS, BAND_5GHZ),
+        ):
+            try:
+                wifi_text = await self.async_run_command(cmd)
+                self.captures[f"ssh:{cmd}"] = Capture(
+                    status=0,
+                    body=sanitize_ssh_wifi_text(wifi_text),
+                )
+                radios[band] = parse_ssh_wifi_radio(wifi_text, band)
+            except Exception as err:
+                _LOGGER.debug("Could not fetch %s over SSH: %s", cmd, err)
+
+        self._cached_radios = radios
         return RouterStatus(
             wifi_clients=dict(self._cached_wifi_clients),
-            radios=dict(self._cached_radios),
+            radios=radios,
             summary=summary,
         )
 

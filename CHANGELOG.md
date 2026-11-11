@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## 3.2.4
+
+- Fix Wi-Fi channel sensors (`Channel 2.4 GHz`, `Channel 5 GHz`) for SSH polling mode: query `show wifi` and `show wifi_plus` to retrieve active operating channels (e.g. Channel 6 and Channel 36).
+- Automatically redact Wi-Fi pre-shared keys and passwords from captured command output to ensure credentials are never stored in memory or exposed in diagnostic exports.
+- Preserve discovered radio channels in coordinator cache between device map update polls.
+
 ## 3.2.3
 
 - Fix memory usage calculation for Askey Linux `show sys_info`: compute accurate used memory percentage from `commitLimit` and `freeMem` counters (eliminating erroneous 499,972% readings).

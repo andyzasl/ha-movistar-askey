@@ -22,6 +22,8 @@ from custom_components.movistar_askey.ssh import (
     MovistarAskeySSHClient,
     parse_ssh_map_info,
     parse_ssh_sys_info,
+    parse_ssh_wifi_radio,
+    sanitize_ssh_wifi_text,
 )
 
 TOPOLOGY_SAMPLE = """dhcp_table
@@ -267,12 +269,41 @@ wifi_plus station_info
     assert names["90:09:D0:26:02:11"] == "SynHome"
 
 
+def test_parse_ssh_wifi_radio_and_sanitization() -> None:
+    """Wi-Fi channels are parsed from show wifi and passwords are redacted."""
+    sample_24 = """wifi0_status on
+wifi ssid BrightFutureIsHere
+wifi bssid 88:33:74:4D:FF:5F
+wifi channel 6
+wifi password secret123
+"""
+    sample_5 = """wifi_plus0_status on
+wifi_plus ssid BrightFutureIsHere
+wifi_plus bssid 88:33:74:4D:FF:5E
+wifi_plus channel 36
+wifi_plus password secret123
+"""
+    r24 = parse_ssh_wifi_radio(sample_24, "2.4 GHz")
+    assert r24.band == "2.4 GHz"
+    assert r24.channel == 6
+    assert r24.enabled is True
+
+    r5 = parse_ssh_wifi_radio(sample_5, "5 GHz")
+    assert r5.band == "5 GHz"
+    assert r5.channel == 36
+    assert r5.enabled is True
+
+    sanitized = sanitize_ssh_wifi_text(sample_24)
+    assert "secret123" not in sanitized
+    assert "wifi password [REDACTED]" in sanitized
+
+
 @pytest.mark.anyio
 async def test_ssh_client_disallows_unsafe_commands() -> None:
     """Commands outside the allow-list are strictly rejected before execution."""
     client = MovistarAskeySSHClient("192.168.1.1", "secret")
     with pytest.raises(ValueError, match="not allowed"):
-        await client.async_run_command("show wifi")
+        await client.async_run_command("show primary_diagnosis")
     with pytest.raises(ValueError, match="not allowed"):
         await client.async_run_command("sh")
 
@@ -342,6 +373,8 @@ async def test_ssh_client_connect_and_session_reuse() -> None:
             " > ",  # initial login prompt
             f"show map_info\r\n{TOPOLOGY_SAMPLE}\r\n > ",
             "show sys_info\r\nuptime 500\r\n > ",
+            "show wifi\r\nwifi channel 6\r\n > ",
+            "show wifi_plus\r\nwifi_plus channel 36\r\n > ",
         ]
     )
     fake_conn = _FakeConnection(process)
@@ -357,7 +390,9 @@ async def test_ssh_client_connect_and_session_reuse() -> None:
             status = await client.async_get_status()
             assert status.summary is not None
             assert status.summary.uptime_seconds == 500
-            assert client.stats["session_reuses"] == 1
+            assert status.radios["2.4 GHz"].channel == 6
+            assert status.radios["5 GHz"].channel == 36
+            assert client.stats["session_reuses"] == 3
             assert client.stats["logins"] == 1
         finally:
             await client.async_close()
