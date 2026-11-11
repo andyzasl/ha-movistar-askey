@@ -2,6 +2,12 @@
 
 All notable changes to this project are documented here.
 
+## 3.2.3
+
+- Fix memory usage calculation for Askey Linux `show sys_info`: compute accurate used memory percentage from `commitLimit` and `freeMem` counters (eliminating erroneous 499,972% readings).
+- Enhance hostname extraction from `show map_info` DHCP table: extract device hostnames from multi-word Wi-Fi lines, Ethernet rows (resolving devices like SynHome), and station tables.
+- Fall back cleanly to device MAC address when no hostname is broadcast to prevent `dynamic (XX:XX)` naming.
+
 ## 3.2.2
 
 - Fix device hostname extraction in SSH `show map_info`: properly extract device names (e.g. iPhone, MacBook) from `wifi station_info` and `eth_device` sections.

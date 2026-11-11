@@ -151,6 +151,83 @@ memory: 45
     assert alt_summary.uptime_seconds == 1234
 
 
+def test_parse_ssh_sys_info_askey_memory_calculation() -> None:
+    """Askey Linux commitLimit and freeMem are used to calculate real memory usage %."""
+    text = """uptime 3359
+load15Min 7.25
+freeMem 500264
+commitLimit 454672
+committedMem 134880
+"""
+    summary = parse_ssh_sys_info(text)
+    assert summary.uptime_seconds == 3359
+    assert summary.cpu_usage == 7
+    # commitLimit = 454672 kB -> MemTotal = 909344 kB
+    # freeMem = 500264 kB -> used = 409080 kB -> 44.98% -> 45%
+    assert summary.memory_usage == 45
+
+
+def test_parse_ssh_map_info_live_askey_topology() -> None:
+    """Real Askey router map_info extracts hostnames and resolves Ethernet."""
+    sample = """dhcp_table
+192.168.1.33 24:9E:7D:86:56:95 dynamic 39990 WiFi 2.4GHz SSID roborock true
+192.168.1.34 8A:DE:79:12:F0:06 dynamic 40012 WiFi 5 GHz SSID iPhone true
+192.168.1.35 C6:86:EC:9E:BB:1A dynamic 40032 WiFi 5 GHz SSID iPhone false
+192.168.1.36 AA:F5:54:F4:42:9E dynamic 41492 WiFi 5 GHz SSID Watch false
+192.168.1.38 B8:82:F2:C5:9D:B9 dynamic 39990 WiFi 2.4GHz SSID true
+192.168.1.40 2C:8D:48:4C:EA:B9 dynamic 40001 WiFi 2.4GHz SSID Eufy Device true
+192.168.1.41 DE:48:DB:E8:5F:C4 dynamic 39990 WiFi 5 GHz SSID Mac true
+192.168.1.135 90:09:D0:26:02:11 dynamic 39917 Ethernet SynHome true
+192.168.1.66 02:42:C0:A8:01:42 static 0 Ethernet true
+arp_table
+192.168.1.33 24:9E:7D:86:56:95 39990 WiFi 2.4GHz SSID roborock true
+Mesh Level N0
+wifi station_info
+192.168.1.33 24:9E:7D:86:56:95 SSID roborock -26
+192.168.1.38 B8:82:F2:C5:9D:B9 SSID -50
+192.168.1.40 2C:8D:48:4C:EA:B9 SSID Eufy Device -62
+wifi_plus station_info
+192.168.1.41 DE:48:DB:E8:5F:C4 SSID Mac -50
+192.168.1.34 8A:DE:79:12:F0:06 SSID iPhone -49
+eth1_device information
+eth2_device information
+192.168.1.135 90:09:D0:26:02:11
+192.168.1.66 02:42:C0:A8:01:42
+Mesh Level N1(2GHz)
+Agent (B0:14:DF:07:9F:10)
+Connected to (8A:33:74:3D:FF:5F)
+wifi station_info
+wifi_plus station_info
+192.168.1.35 C6:86:EC:9E:BB:1A SSID iPhone -48
+192.168.1.36 AA:F5:54:F4:42:9E SSID Watch -58
+"""
+    devices, wifi_clients, radios = parse_ssh_map_info(sample)
+
+    # Wi-Fi devices with hostname
+    assert devices["24:9E:7D:86:56:95"].name == "roborock"
+    assert devices["8A:DE:79:12:F0:06"].name == "iPhone"
+    assert devices["DE:48:DB:E8:5F:C4"].name == "Mac"
+    assert devices["2C:8D:48:4C:EA:B9"].name == "Eufy Device"
+
+    # Repeater Wi-Fi devices
+    assert devices["C6:86:EC:9E:BB:1A"].name == "iPhone"
+    assert devices["AA:F5:54:F4:42:9E"].name == "Watch"
+
+    # Ethernet device resolved via DHCP table
+    assert devices["90:09:D0:26:02:11"].name == "SynHome"
+    assert devices["90:09:D0:26:02:11"].interface == "ETH"
+
+    # Devices without hostname default to MAC address
+    assert devices["B8:82:F2:C5:9D:B9"].name == "B8:82:F2:C5:9D:B9"
+    assert devices["02:42:C0:A8:01:42"].name == "02:42:C0:A8:01:42"
+
+    # Radio and client verification
+    assert wifi_clients["8A:DE:79:12:F0:06"].rssi == -49
+    assert wifi_clients["C6:86:EC:9E:BB:1A"].rssi == -48
+    assert "2.4 GHz" in radios
+    assert "5 GHz" in radios
+
+
 @pytest.mark.anyio
 async def test_ssh_client_disallows_unsafe_commands() -> None:
     """Commands outside the allow-list are strictly rejected before execution."""

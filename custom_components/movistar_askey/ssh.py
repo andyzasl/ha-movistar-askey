@@ -70,6 +70,66 @@ IGNORED_HOSTNAMES: Final = frozenset(
 MAX_RESPONSE: Final = 2 * 1024 * 1024
 
 
+def _extract_dhcp_hostname(parts: list[str]) -> str | None:
+    """
+    Extract a device hostname from a DHCP or ARP table line.
+
+    Lines may be formatted as:
+      IP MAC dynamic/static EXPIRY WiFi 2.4GHz/5 GHz SSID HOSTNAME true/false
+      IP MAC dynamic/static EXPIRY Ethernet HOSTNAME true/false
+      IP MAC HOSTNAME EXPIRY true/false
+    """
+    if len(parts) < 3:
+        return None
+
+    # Strip trailing true/false active/bound flag if present
+    trailing_flag = parts[-1].lower() in ("true", "false")
+    tokens = parts[2:-1] if trailing_flag else parts[2:]
+    if not tokens:
+        return None
+
+    # Check for Ethernet row: e.g. ["dynamic", "39917", "Ethernet", "SynHome"]
+    eth_indices = [i for i, t in enumerate(tokens) if t.lower() == "ethernet"]
+    if eth_indices:
+        candidate = " ".join(tokens[eth_indices[0] + 1 :]).strip()
+        return (
+            candidate
+            if candidate and candidate.lower() not in IGNORED_HOSTNAMES
+            else None
+        )
+
+    # Check for Wi-Fi row: e.g. ["dynamic", "40012", "WiFi", "5", "GHz", "SSID", "name"]
+    wifi_indices = [i for i, t in enumerate(tokens) if t.lower() in ("wifi", "wi-fi")]
+    if wifi_indices:
+        idx = wifi_indices[0]
+        after_wifi = tokens[idx + 1 :]
+        # Skip frequency tokens: "2.4GHz", "5GHz", "6GHz", "5", "2.4", "GHz"
+        sub_idx = 0
+        while sub_idx < len(after_wifi) and (
+            re.match(r"^(?:2\.4|5|6)(?:ghz)?$", after_wifi[sub_idx], re.IGNORECASE)
+            or after_wifi[sub_idx].lower() == "ghz"
+        ):
+            sub_idx += 1
+        # Next token is SSID: skip it
+        if sub_idx < len(after_wifi):
+            sub_idx += 1
+        candidate = " ".join(after_wifi[sub_idx:]).strip()
+        return (
+            candidate
+            if candidate and candidate.lower() not in IGNORED_HOSTNAMES
+            else None
+        )
+
+    # Fallback: filter out lease keywords, numbers, or placeholders
+    filtered = [
+        t for t in tokens if t.lower() not in IGNORED_HOSTNAMES and not t.isdigit()
+    ]
+    candidate = " ".join(filtered).strip()
+    return (
+        candidate if candidate and candidate.lower() not in IGNORED_HOSTNAMES else None
+    )
+
+
 def parse_ssh_map_info(
     text: str,
 ) -> tuple[dict[str, RouterDevice], dict[str, WifiClient], dict[str, RadioInfo]]:
@@ -129,15 +189,10 @@ def parse_ssh_map_info(
             ip = parts[0]
             mac = parts[1].upper().replace("-", ":")
 
-            if current_section == "dhcp":
-                # dhcp_table format: IP MAC LEASE_TYPE [EXPIRY] [BOUND]
-                # Filter out lease types like 'dynamic'/'static' or digits.
-                if (
-                    len(parts) >= 3
-                    and parts[2].lower() not in IGNORED_HOSTNAMES
-                    and not parts[2].isdigit()
-                ):
-                    dhcp_names[mac] = parts[2]
+            if current_section in ("dhcp", "arp"):
+                hostname = _extract_dhcp_hostname(parts)
+                if hostname:
+                    dhcp_names[mac] = hostname
             elif (
                 current_section == "wifi"
                 and current_node is not None
@@ -254,15 +309,39 @@ def parse_ssh_sys_info(text: str) -> RouterSummary:
             val = float(cpu_match.group(1))
             cpu_usage = round(val) if val <= 100 else 100
 
-    mem_match = re.search(
-        r"(?:mem(?:ory)?(?:_usage)?)\s*[:=]?\s*([\d.]+)",
+    free_mem_match = re.search(r"\bfreeMem\s*[:=]?\s*(\d+)", text, re.IGNORECASE)
+    commit_limit_match = re.search(
+        r"\bcommitLimit\s*[:=]?\s*(\d+)", text, re.IGNORECASE
+    )
+    total_mem_match = re.search(
+        r"\b(?:totalMem|memTotal|total_memory)\s*[:=]?\s*(\d+)",
         text,
         re.IGNORECASE,
     )
+
     memory_usage: int | None = None
-    if mem_match:
-        with contextlib.suppress(ValueError):
-            memory_usage = round(float(mem_match.group(1)))
+    if free_mem_match:
+        free_mem = int(free_mem_match.group(1))
+        total_mem = (
+            int(total_mem_match.group(1))
+            if total_mem_match
+            else (int(commit_limit_match.group(1)) * 2 if commit_limit_match else None)
+        )
+        if total_mem and total_mem > free_mem:
+            memory_usage = max(
+                0, min(100, round(((total_mem - free_mem) / total_mem) * 100))
+            )
+    else:
+        mem_pct_match = re.search(
+            r"\b(?:mem(?:ory)?(?:_usage)?|memusage)\s*[:=]?\s*(\d{1,3})(?:\s*%)?\b",
+            text,
+            re.IGNORECASE,
+        )
+        if mem_pct_match:
+            with contextlib.suppress(ValueError):
+                val = int(mem_pct_match.group(1))
+                if 0 <= val <= 100:
+                    memory_usage = val
 
     return RouterSummary(
         uptime_seconds=uptime_seconds,
