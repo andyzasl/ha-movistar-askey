@@ -96,6 +96,21 @@
     "binary_sensor": {
       "router_reachable": {
         "name": "Router reachable"
+      },
+      "internet_service": {
+        "name": "Internet service"
+      },
+      "pppoe_status": {
+        "name": "PPPoE connection"
+      },
+      "voip_status": {
+        "name": "VoIP service"
+      },
+      "sip_status": {
+        "name": "SIP registration"
+      },
+      "repeater_link_status": {
+        "name": "Link status"
       }
     },
     "event": {
@@ -155,6 +170,36 @@
       },
       "client_roams": {
         "name": "Client roams"
+      },
+      "temperature_soc": {
+        "name": "Main SoC temperature"
+      },
+      "temperature_wifi_24": {
+        "name": "Wi-Fi 2.4 GHz temperature"
+      },
+      "temperature_wifi_5": {
+        "name": "Wi-Fi 5 GHz temperature"
+      },
+      "optical_rx_power": {
+        "name": "Optical RX power"
+      },
+      "optical_tx_power": {
+        "name": "Optical TX power"
+      },
+      "public_ip": {
+        "name": "Public IP"
+      },
+      "registered_phone_number": {
+        "name": "Registered phone number"
+      },
+      "iptv_service_status": {
+        "name": "IPTV service status"
+      },
+      "repeater_backhaul_band": {
+        "name": "Backhaul band"
+      },
+      "repeater_upstream_bssid": {
+        "name": "Upstream BSSID"
       }
     }
   },

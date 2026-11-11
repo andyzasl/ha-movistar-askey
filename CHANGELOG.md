@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented here.
 
+## 3.2.5
+
+- Add comprehensive router telemetry and service health metrics for SSH polling mode (strictly gated to SSH to avoid web polling overhead):
+  - **Main SoC & Wi-Fi Temperatures**: `Main SoC temperature`, `Wi-Fi 2.4 GHz temperature`, and `Wi-Fi 5 GHz temperature` sensors parsed from `show temperature`.
+  - **Optical Power Telemetry**: `Optical RX power` and `Optical TX power` sensors (dBm) parsed from `show primary_diagnosis`.
+  - **WAN & Voice Service Health**: `Internet service`, `PPPoE connection`, `VoIP service`, and `SIP registration` connectivity binary sensors, plus `IPTV service status`, `Public IP`, and `Registered phone number` diagnostic sensors.
+  - **Mesh Repeater Telemetry**: When a mesh repeater is detected, expose `Link status` binary sensor, `Backhaul band` sensor (2.4 GHz vs 5 GHz), and `Upstream BSSID` sensor attached directly to the Repeater device in Home Assistant.
+- Automatic redaction of sensitive WAN diagnostics (public IP and registered telephone number) from diagnostic logs and captured output.
+
 ## 3.2.4
 
 - Fix Wi-Fi channel sensors (`Channel 2.4 GHz`, `Channel 5 GHz`) for SSH polling mode: query `show wifi` and `show wifi_plus` to retrieve active operating channels (e.g. Channel 6 and Channel 36).

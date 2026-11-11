@@ -21,8 +21,11 @@ from custom_components.movistar_askey.router import (
 from custom_components.movistar_askey.ssh import (
     MovistarAskeySSHClient,
     parse_ssh_map_info,
+    parse_ssh_primary_diagnosis,
     parse_ssh_sys_info,
+    parse_ssh_temperature,
     parse_ssh_wifi_radio,
+    sanitize_ssh_diagnosis_text,
     sanitize_ssh_wifi_text,
 )
 
@@ -47,7 +50,7 @@ wifi_plus station_info
 
 def test_parse_ssh_map_info_extracts_all_devices() -> None:
     """Topology parsing correctly maps router, repeater, and wired clients."""
-    devices, wifi_clients, radios = parse_ssh_map_info(TOPOLOGY_SAMPLE)
+    devices, wifi_clients, radios, repeater = parse_ssh_map_info(TOPOLOGY_SAMPLE)
 
     assert len(devices) == 4
 
@@ -95,6 +98,13 @@ def test_parse_ssh_map_info_extracts_all_devices() -> None:
     assert radios["2.4 GHz"].enabled is True
     assert radios["5 GHz"].enabled is True
 
+    # Repeater
+    assert repeater is not None
+    assert repeater.connected is True
+    assert repeater.backhaul_band == "5 GHz"
+    assert repeater.agent_mac == "B0:14:DF:07:9F:10"
+    assert repeater.upstream_bssid == "88:33:74:4D:FF:5E"
+
 
 def test_parse_ssh_map_info_filters_lease_keywords_and_handles_missing_names() -> None:
     """DHCP lease keywords ('dynamic', 'static') are never used as device names."""
@@ -107,7 +117,7 @@ wifi station_info
 wifi_plus station_info
 192.168.1.20 AA:BB:CC:DD:EE:FF MOVISTAR_PLUS_XXXX -60
 """
-    devices, _, _ = parse_ssh_map_info(raw)
+    devices, _, _, _ = parse_ssh_map_info(raw)
 
     # Device with Wi-Fi hostname receives the parsed hostname
     assert devices["11:22:33:44:55:66"].name == "iPhone de Andy"
@@ -124,11 +134,12 @@ def test_parse_ssh_map_info_empty_station_tables() -> None:
 wifi station_info
 wifi_plus station_info
 """
-    devices, wifi_clients, radios = parse_ssh_map_info(empty_topology)
+    devices, wifi_clients, radios, repeater = parse_ssh_map_info(empty_topology)
     assert devices == {}
     assert wifi_clients == {}
     assert "2.4 GHz" in radios
     assert "5 GHz" in radios
+    assert repeater is None
 
 
 def test_parse_ssh_map_info_rejects_unrecognized_output() -> None:
@@ -204,7 +215,13 @@ wifi_plus station_info
 192.168.1.35 C6:86:EC:9E:BB:1A SSID iPhone -48
 192.168.1.36 AA:F5:54:F4:42:9E SSID Watch -58
 """
-    devices, wifi_clients, radios = parse_ssh_map_info(sample)
+    devices, wifi_clients, radios, repeater = parse_ssh_map_info(sample)
+
+    assert repeater is not None
+    assert repeater.connected is True
+    assert repeater.backhaul_band == "2.4 GHz"
+    assert repeater.agent_mac == "B0:14:DF:07:9F:10"
+    assert repeater.upstream_bssid == "8A:33:74:3D:FF:5F"
 
     # Wi-Fi devices with hostname
     assert devices["24:9E:7D:86:56:95"].name == "roborock"
@@ -254,7 +271,7 @@ Connected to (8A:33:74:3D:FF:5F)
 wifi_plus station_info
 192.168.1.35 C6:86:EC:9E:BB:1A SSID iPhone -48
 """
-    ssh_devs, _, _ = parse_ssh_map_info(ssh_output)
+    ssh_devs, _, _, _ = parse_ssh_map_info(ssh_output)
     suffixed = update_suffixed(ssh_devs, set())
     names = {mac: display_name(d, suffixed) for mac, d in ssh_devs.items()}
 
@@ -303,9 +320,51 @@ async def test_ssh_client_disallows_unsafe_commands() -> None:
     """Commands outside the allow-list are strictly rejected before execution."""
     client = MovistarAskeySSHClient("192.168.1.1", "secret")
     with pytest.raises(ValueError, match="not allowed"):
-        await client.async_run_command("show primary_diagnosis")
+        await client.async_run_command("show invalid_command")
     with pytest.raises(ValueError, match="not allowed"):
         await client.async_run_command("sh")
+
+
+def test_parse_ssh_temperature() -> None:
+    """Temperatures for Main SoC and Wi-Fi radios are correctly parsed."""
+    sample = """wifi 43
+wifi_plus 40
+main_soc 61.3
+"""
+    result = parse_ssh_temperature(sample)
+    assert result["temp_soc"] == 61.3
+    assert result["temp_wifi_24"] == 43.0
+    assert result["temp_wifi_5"] == 40.0
+
+
+def test_parse_ssh_primary_diagnosis_and_sanitization() -> None:
+    """WAN, optical power, and voice metrics are parsed and sanitized."""
+    sample = """internet_service status up
+pppoe status up
+iptv_service status unconfigured
+voip status up
+SIP client register up
+registered phone number 961311913
+received_optical power -18.96 dBm
+transmitted_optical power 3.16 dBm
+public_IP 88.20.211.172
+"""
+    diag = parse_ssh_primary_diagnosis(sample)
+    assert diag["internet_status"] == "up"
+    assert diag["pppoe_status"] == "up"
+    assert diag["iptv_status"] == "unconfigured"
+    assert diag["voip_status"] == "up"
+    assert diag["sip_status"] == "up"
+    assert diag["phone_number"] == "961311913"
+    assert diag["optical_rx_power"] == -18.96
+    assert diag["optical_tx_power"] == 3.16
+    assert diag["public_ip"] == "88.20.211.172"
+
+    sanitized = sanitize_ssh_diagnosis_text(sample)
+    assert "961311913" not in sanitized
+    assert "88.20.211.172" not in sanitized
+    assert "registered phone number [REDACTED]" in sanitized
+    assert "public_IP [REDACTED]" in sanitized
 
 
 class _FakeSSHReader:
@@ -373,6 +432,11 @@ async def test_ssh_client_connect_and_session_reuse() -> None:
             " > ",  # initial login prompt
             f"show map_info\r\n{TOPOLOGY_SAMPLE}\r\n > ",
             "show sys_info\r\nuptime 500\r\n > ",
+            "show temperature\r\nmain_soc 61.3\r\nwifi 43\r\nwifi_plus 40\r\n > ",
+            (
+                "show primary_diagnosis\r\ninternet_service status up\r\n"
+                "received_optical power -18.96 dBm\r\n > "
+            ),
             "show wifi\r\nwifi channel 6\r\n > ",
             "show wifi_plus\r\nwifi_plus channel 36\r\n > ",
         ]
@@ -390,9 +454,17 @@ async def test_ssh_client_connect_and_session_reuse() -> None:
             status = await client.async_get_status()
             assert status.summary is not None
             assert status.summary.uptime_seconds == 500
+            assert status.summary.temp_soc == 61.3
+            assert status.summary.temp_wifi_24 == 43.0
+            assert status.summary.temp_wifi_5 == 40.0
+            assert status.summary.internet_status == "up"
+            assert status.summary.optical_rx_power == -18.96
+            assert status.repeater is not None
+            assert status.repeater.connected is True
+            assert status.repeater.backhaul_band == "5 GHz"
             assert status.radios["2.4 GHz"].channel == 6
             assert status.radios["5 GHz"].channel == 36
-            assert client.stats["session_reuses"] == 3
+            assert client.stats["session_reuses"] == 5
             assert client.stats["logins"] == 1
         finally:
             await client.async_close()
@@ -479,3 +551,34 @@ async def test_ssh_client_async_close_cleans_resources() -> None:
         assert process.waited_closed
         assert client._conn is None
         assert client._process is None
+
+
+@pytest.mark.anyio
+async def test_ssh_repeater_caching_and_disconnect() -> None:
+    """Repeater is cached on discovery and marked disconnected if it drops."""
+    no_repeater_sample = """Mesh Level N0
+wifi station_info
+192.168.1.33 24:9E:7D:86:56:95 Movistar_24G HomePod -35
+"""
+    process = _FakeProcess(
+        [
+            " > ",
+            f"show map_info\r\n{TOPOLOGY_SAMPLE}\r\n > ",
+            f"show map_info\r\n{no_repeater_sample}\r\n > ",
+        ]
+    )
+    conn = _FakeConnection(process)
+
+    with patch.object(asyncssh, "connect", AsyncMock(return_value=conn)):
+        client = MovistarAskeySSHClient("192.168.1.1", "secret")
+        # First poll discovers repeater
+        await client.async_get_devices()
+        assert client._cached_repeater is not None
+        assert client._cached_repeater.connected is True
+        assert client._cached_repeater.agent_mac == "B0:14:DF:07:9F:10"
+
+        # Second poll loses repeater
+        await client.async_get_devices()
+        assert client._cached_repeater is not None
+        assert client._cached_repeater.connected is False
+        assert client._cached_repeater.agent_mac == "B0:14:DF:07:9F:10"

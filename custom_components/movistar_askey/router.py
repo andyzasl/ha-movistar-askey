@@ -13,6 +13,7 @@ import aiohttp
 from .status import (
     RADIO_BANDS,
     RadioInfo,
+    RepeaterInfo,
     RouterSummary,
     WifiClient,
     parse_associations,
@@ -107,6 +108,7 @@ class RouterStatus:
     wifi_clients: dict[str, WifiClient] = field(default_factory=dict)
     radios: dict[str, RadioInfo] = field(default_factory=dict)
     summary: RouterSummary | None = None
+    repeater: RepeaterInfo | None = None
 
 
 def encode_router_value(value: str) -> str:

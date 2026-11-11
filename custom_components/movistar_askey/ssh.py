@@ -6,7 +6,7 @@ import asyncio
 import contextlib
 import logging
 import re
-from typing import Final
+from typing import Any, Final
 
 import asyncssh
 
@@ -33,6 +33,7 @@ from .status import (
     BAND_5GHZ,
     BAND_24GHZ,
     RadioInfo,
+    RepeaterInfo,
     WifiClient,
 )
 
@@ -50,12 +51,16 @@ SSH_COMMAND_MAP_INFO: Final = "show map_info"
 SSH_COMMAND_SYS_INFO: Final = "show sys_info"
 SSH_COMMAND_WIFI: Final = "show wifi"
 SSH_COMMAND_WIFI_PLUS: Final = "show wifi_plus"
+SSH_COMMAND_TEMPERATURE: Final = "show temperature"
+SSH_COMMAND_PRIMARY_DIAGNOSIS: Final = "show primary_diagnosis"
 SSH_ALLOWED_COMMANDS: Final = frozenset(
     {
         SSH_COMMAND_MAP_INFO,
         SSH_COMMAND_SYS_INFO,
         SSH_COMMAND_WIFI,
         SSH_COMMAND_WIFI_PLUS,
+        SSH_COMMAND_TEMPERATURE,
+        SSH_COMMAND_PRIMARY_DIAGNOSIS,
     }
 )
 
@@ -140,16 +145,25 @@ def _extract_dhcp_hostname(parts: list[str]) -> str | None:
 
 def parse_ssh_map_info(
     text: str,
-) -> tuple[dict[str, RouterDevice], dict[str, WifiClient], dict[str, RadioInfo]]:
+) -> tuple[
+    dict[str, RouterDevice],
+    dict[str, WifiClient],
+    dict[str, RadioInfo],
+    RepeaterInfo | None,
+]:
     """
     Parse the output of ``show map_info`` from the router's restricted CLI.
 
-    Returns a tuple of (devices, wifi_clients, radios).
+    Returns a tuple of (devices, wifi_clients, radios, repeater_info).
     """
     devices: dict[str, RouterDevice] = {}
     wifi_clients: dict[str, WifiClient] = {}
     radios: dict[str, RadioInfo] = {}
     dhcp_names: dict[str, str] = {}
+
+    repeater_backhaul: str | None = None
+    repeater_agent: str | None = None
+    repeater_upstream: str | None = None
 
     current_node: str | None = None
     current_band: str | None = None
@@ -161,12 +175,34 @@ def parse_ssh_map_info(
         if not line:
             continue
 
-        mesh_match = re.search(r"Mesh Level N(\d+)", line, re.IGNORECASE)
+        mesh_match = re.search(
+            r"Mesh Level N(\d+)(?:\(([^)]+)\))?", line, re.IGNORECASE
+        )
         if mesh_match:
-            current_node = NODE_ROUTER if mesh_match.group(1) == "0" else NODE_REPEATER
+            level = mesh_match.group(1)
+            band_hint = mesh_match.group(2)
+            current_node = NODE_ROUTER if level == "0" else NODE_REPEATER
             seen_nodes.add(current_node)
             current_band = None
             current_section = "mesh"
+            if current_node == NODE_REPEATER and band_hint:
+                bh = band_hint.lower()
+                if "2ghz" in bh or "2.4" in bh:
+                    repeater_backhaul = BAND_24GHZ
+                elif "5ghz" in bh or "5" in bh:
+                    repeater_backhaul = BAND_5GHZ
+                else:
+                    repeater_backhaul = band_hint
+            continue
+
+        agent_match = re.search(r"^Agent\s*\(([^)]+)\)", line, re.IGNORECASE)
+        if agent_match:
+            repeater_agent = agent_match.group(1).upper().replace("-", ":")
+            continue
+
+        conn_match = re.search(r"^Connected to\s*\(([^)]+)\)", line, re.IGNORECASE)
+        if conn_match:
+            repeater_upstream = conn_match.group(1).upper().replace("-", ":")
             continue
 
         if re.search(r"\bdhcp_table\b", line, re.IGNORECASE):
@@ -290,7 +326,16 @@ def parse_ssh_map_info(
                 link=dev.link,
             )
 
-    return devices, wifi_clients, radios
+    repeater_info: RepeaterInfo | None = None
+    if NODE_REPEATER in seen_nodes or repeater_agent or repeater_upstream:
+        repeater_info = RepeaterInfo(
+            connected=True,
+            backhaul_band=repeater_backhaul,
+            upstream_bssid=repeater_upstream,
+            agent_mac=repeater_agent,
+        )
+
+    return devices, wifi_clients, radios, repeater_info
 
 
 def parse_ssh_sys_info(text: str) -> RouterSummary:
@@ -404,6 +449,79 @@ def parse_ssh_wifi_radio(text: str, band: str) -> RadioInfo:
     )
 
 
+def parse_ssh_temperature(text: str) -> dict[str, float | None]:
+    """Parse temperatures from ``show temperature`` CLI output."""
+    soc_m = re.search(r"main_soc\s+([\d.]+)", text, re.IGNORECASE)
+    w24_m = re.search(r"^wifi\s+([\d.]+)", text, re.MULTILINE | re.IGNORECASE)
+    w5_m = re.search(r"^wifi_plus\s+([\d.]+)", text, re.MULTILINE | re.IGNORECASE)
+
+    def _to_float(m: re.Match[str] | None) -> float | None:
+        if not m:
+            return None
+        with contextlib.suppress(ValueError):
+            return float(m.group(1))
+        return None
+
+    return {
+        "temp_soc": _to_float(soc_m),
+        "temp_wifi_24": _to_float(w24_m),
+        "temp_wifi_5": _to_float(w5_m),
+    }
+
+
+def parse_ssh_primary_diagnosis(text: str) -> dict[str, Any]:
+    """Parse WAN and diagnostics metrics from ``show primary_diagnosis``."""
+
+    def _find(pattern: str) -> str | None:
+        m = re.search(pattern, text, re.MULTILINE | re.IGNORECASE)
+        return m.group(1).strip() if m else None
+
+    rx_str = _find(r"^received_optical\s+power\s+([-\d.]+)\s*dBm")
+    tx_str = _find(r"^transmitted_optical\s+power\s+([-\d.]+)\s*dBm")
+
+    rx_power: float | None = None
+    if rx_str:
+        with contextlib.suppress(ValueError):
+            rx_power = float(rx_str)
+
+    tx_power: float | None = None
+    if tx_str:
+        with contextlib.suppress(ValueError):
+            tx_power = float(tx_str)
+
+    phone = _find(r"^registered\s+phone\s+number\s+(\S+)")
+    if phone and phone.lower() in ("none", "null", "-", "--", "unconfigured"):
+        phone = None
+
+    return {
+        "internet_status": _find(r"^internet_service\s+status\s+(\w+)"),
+        "pppoe_status": _find(r"^pppoe\s+status\s+(\w+)"),
+        "iptv_status": _find(r"^iptv_service\s+status\s+(\w+)"),
+        "voip_status": _find(r"^voip\s+status\s+(\w+)"),
+        "sip_status": _find(r"^SIP\s+client\s+register\s+(\w+)"),
+        "phone_number": phone,
+        "optical_rx_power": rx_power,
+        "optical_tx_power": tx_power,
+        "public_ip": _find(r"^public_IP\s+(\d{1,3}(?:\.\d{1,3}){3})"),
+    }
+
+
+def sanitize_ssh_diagnosis_text(text: str) -> str:
+    """Redact sensitive fields from primary_diagnosis output."""
+    text = re.sub(
+        r"^(registered\s+phone\s+number\s+).+$",
+        r"\1[REDACTED]",
+        text,
+        flags=re.MULTILINE | re.IGNORECASE,
+    )
+    return re.sub(
+        r"^(public_IP\s+).+$",
+        r"\1[REDACTED]",
+        text,
+        flags=re.MULTILINE | re.IGNORECASE,
+    )
+
+
 class MovistarAskeySSHClient:
     """Fetch router network map and status via interactive SSH console."""
 
@@ -429,6 +547,7 @@ class MovistarAskeySSHClient:
 
         self._cached_wifi_clients: dict[str, WifiClient] = {}
         self._cached_radios: dict[str, RadioInfo] = {}
+        self._cached_repeater: RepeaterInfo | None = None
 
         self.captures: dict[str, Capture] = {}
         self.stats: dict[str, int] = {
@@ -444,8 +563,15 @@ class MovistarAskeySSHClient:
             status=0,
             body=text,
         )
-        devices, wifi_clients, radios = parse_ssh_map_info(text)
+        devices, wifi_clients, radios, repeater = parse_ssh_map_info(text)
         self._cached_wifi_clients = wifi_clients
+        if repeater is not None:
+            self._cached_repeater = repeater
+        elif self._cached_repeater is not None:
+            self._cached_repeater = RepeaterInfo(
+                connected=False,
+                agent_mac=self._cached_repeater.agent_mac,
+            )
         # Preserve known radio channels and bandwidth if already discovered
         for band, radio in radios.items():
             if (
@@ -471,6 +597,55 @@ class MovistarAskeySSHClient:
         )
         summary = parse_ssh_sys_info(text)
 
+        temp_dict: dict[str, float | None] = {}
+        try:
+            temp_text = await self.async_run_command(SSH_COMMAND_TEMPERATURE)
+            self.captures[f"ssh:{SSH_COMMAND_TEMPERATURE}"] = Capture(
+                status=0,
+                body=temp_text,
+            )
+            temp_dict = parse_ssh_temperature(temp_text)
+        except Exception as err:
+            _LOGGER.debug(
+                "Could not fetch %s over SSH: %s", SSH_COMMAND_TEMPERATURE, err
+            )
+
+        diag_dict: dict[str, Any] = {}
+        try:
+            diag_text = await self.async_run_command(SSH_COMMAND_PRIMARY_DIAGNOSIS)
+            self.captures[f"ssh:{SSH_COMMAND_PRIMARY_DIAGNOSIS}"] = Capture(
+                status=0,
+                body=sanitize_ssh_diagnosis_text(diag_text),
+            )
+            diag_dict = parse_ssh_primary_diagnosis(diag_text)
+        except Exception as err:
+            _LOGGER.debug(
+                "Could not fetch %s over SSH: %s",
+                SSH_COMMAND_PRIMARY_DIAGNOSIS,
+                err,
+            )
+
+        summary = RouterSummary(
+            uptime_seconds=summary.uptime_seconds,
+            cpu_usage=summary.cpu_usage,
+            memory_usage=summary.memory_usage,
+            firmware=summary.firmware,
+            hardware=summary.hardware,
+            model=summary.model,
+            temp_soc=temp_dict.get("temp_soc"),
+            temp_wifi_24=temp_dict.get("temp_wifi_24"),
+            temp_wifi_5=temp_dict.get("temp_wifi_5"),
+            optical_rx_power=diag_dict.get("optical_rx_power"),
+            optical_tx_power=diag_dict.get("optical_tx_power"),
+            public_ip=diag_dict.get("public_ip"),
+            internet_status=diag_dict.get("internet_status"),
+            pppoe_status=diag_dict.get("pppoe_status"),
+            iptv_status=diag_dict.get("iptv_status"),
+            voip_status=diag_dict.get("voip_status"),
+            sip_status=diag_dict.get("sip_status"),
+            phone_number=diag_dict.get("phone_number"),
+        )
+
         radios = dict(self._cached_radios)
         for cmd, band in (
             (SSH_COMMAND_WIFI, BAND_24GHZ),
@@ -491,6 +666,7 @@ class MovistarAskeySSHClient:
             wifi_clients=dict(self._cached_wifi_clients),
             radios=radios,
             summary=summary,
+            repeater=self._cached_repeater,
         )
 
     async def async_run_command(self, command: str) -> str:

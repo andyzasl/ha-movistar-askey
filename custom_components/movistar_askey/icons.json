@@ -6,6 +6,21 @@
         "state": {
           "off": "mdi:router-network-wireless"
         }
+      },
+      "internet_service": {
+        "default": "mdi:web"
+      },
+      "pppoe_status": {
+        "default": "mdi:wan"
+      },
+      "voip_status": {
+        "default": "mdi:phone-voip"
+      },
+      "sip_status": {
+        "default": "mdi:phone-check"
+      },
+      "repeater_link_status": {
+        "default": "mdi:access-point-network"
       }
     },
     "event": {
@@ -55,6 +70,36 @@
       },
       "client_roams": {
         "default": "mdi:swap-horizontal"
+      },
+      "temperature_soc": {
+        "default": "mdi:thermometer"
+      },
+      "temperature_wifi_24": {
+        "default": "mdi:thermometer-wifi"
+      },
+      "temperature_wifi_5": {
+        "default": "mdi:thermometer-wifi"
+      },
+      "optical_rx_power": {
+        "default": "mdi:transmission-tower-export"
+      },
+      "optical_tx_power": {
+        "default": "mdi:transmission-tower-import"
+      },
+      "public_ip": {
+        "default": "mdi:ip-outline"
+      },
+      "registered_phone_number": {
+        "default": "mdi:phone-classic"
+      },
+      "iptv_service_status": {
+        "default": "mdi:television-box"
+      },
+      "repeater_backhaul_band": {
+        "default": "mdi:wifi-sync"
+      },
+      "repeater_upstream_bssid": {
+        "default": "mdi:router-wireless"
       }
     }
   }

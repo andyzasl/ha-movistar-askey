@@ -50,6 +50,16 @@ class RadioInfo:
 
 
 @dataclass(frozen=True, slots=True)
+class RepeaterInfo:
+    """Mesh repeater status reported by the router."""
+
+    connected: bool
+    backhaul_band: str | None = None
+    upstream_bssid: str | None = None
+    agent_mac: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class RouterSummary:
     """System summary reported by the router."""
 
@@ -59,6 +69,18 @@ class RouterSummary:
     firmware: str
     hardware: str
     model: str
+    temp_soc: float | None = None
+    temp_wifi_24: float | None = None
+    temp_wifi_5: float | None = None
+    optical_rx_power: float | None = None
+    optical_tx_power: float | None = None
+    public_ip: str | None = None
+    internet_status: str | None = None
+    pppoe_status: str | None = None
+    iptv_status: str | None = None
+    voip_status: str | None = None
+    sip_status: str | None = None
+    phone_number: str | None = None
 
 
 def _root(xml_text: str) -> ET.Element | None:

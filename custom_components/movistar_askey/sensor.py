@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from homeassistant.components.sensor import (
     RestoreSensor,
@@ -19,6 +20,7 @@ from homeassistant.const import (
     PERCENTAGE,
     SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
     EntityCategory,
+    UnitOfTemperature,
 )
 from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -33,7 +35,7 @@ from .const import (
     SIGNAL_SENSOR_UNIQUE_ID_SUFFIX,
 )
 from .coordinator import MovistarAskeyCoordinator
-from .device import router_device_info
+from .device import repeater_device_info, router_device_info
 from .router import NODE_REPEATER
 from .signal import signal_sensor_enabled_default
 from .status import BAND_5GHZ, BAND_24GHZ
@@ -43,9 +45,9 @@ from .status import BAND_5GHZ, BAND_24GHZ
 class RouterSensorDescription(SensorEntityDescription):
     """Describe a sensor derived from the router's status data."""
 
-    value_fn: Callable[[MovistarAskeyCoordinator], datetime | int | None]
+    value_fn: Callable[[MovistarAskeyCoordinator], datetime | int | float | str | None]
     attributes_fn: (
-        Callable[[MovistarAskeyCoordinator], dict[str, int | None]] | None
+        Callable[[MovistarAskeyCoordinator], dict[str, Any] | None] | None
     ) = None
 
 
@@ -153,6 +155,76 @@ SENSORS: tuple[RouterSensorDescription, ...] = (
     ),
 )
 
+SSH_ROUTER_SENSORS: tuple[RouterSensorDescription, ...] = (
+    RouterSensorDescription(
+        key="temperature_soc",
+        translation_key="temperature_soc",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: c.status.summary.temp_soc if c.status.summary else None,
+    ),
+    RouterSensorDescription(
+        key="temperature_wifi_24",
+        translation_key="temperature_wifi_24",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: c.status.summary.temp_wifi_24 if c.status.summary else None,
+    ),
+    RouterSensorDescription(
+        key="temperature_wifi_5",
+        translation_key="temperature_wifi_5",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: c.status.summary.temp_wifi_5 if c.status.summary else None,
+    ),
+    RouterSensorDescription(
+        key="optical_rx_power",
+        translation_key="optical_rx_power",
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+        native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: (
+            c.status.summary.optical_rx_power if c.status.summary else None
+        ),
+    ),
+    RouterSensorDescription(
+        key="optical_tx_power",
+        translation_key="optical_tx_power",
+        device_class=SensorDeviceClass.SIGNAL_STRENGTH,
+        native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: (
+            c.status.summary.optical_tx_power if c.status.summary else None
+        ),
+    ),
+    RouterSensorDescription(
+        key="public_ip",
+        translation_key="public_ip",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: c.status.summary.public_ip if c.status.summary else None,
+    ),
+    RouterSensorDescription(
+        key="registered_phone_number",
+        translation_key="registered_phone_number",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: c.status.summary.phone_number if c.status.summary else None,
+    ),
+    RouterSensorDescription(
+        key="iptv_service_status",
+        translation_key="iptv_service_status",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda c: c.status.summary.iptv_status if c.status.summary else None,
+    ),
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -161,12 +233,60 @@ async def async_setup_entry(
 ) -> None:
     """Set up router sensors and per-client signal sensors."""
     coordinator: MovistarAskeyCoordinator = entry.runtime_data
-    async_add_entities(
-        [
-            *(RouterStatusSensor(coordinator, d) for d in SENSORS),
-            RouterRoamSensor(coordinator),
-        ]
-    )
+    router_sensors: list[SensorEntity] = [
+        *(RouterStatusSensor(coordinator, d) for d in SENSORS),
+        RouterRoamSensor(coordinator),
+    ]
+    if coordinator.is_ssh:
+        router_sensors.extend(
+            RouterStatusSensor(coordinator, d) for d in SSH_ROUTER_SENSORS
+        )
+    async_add_entities(router_sensors)
+
+    if coordinator.is_ssh:
+        repeater_sensors_added = False
+
+        @callback
+        def check_repeater_sensors() -> None:
+            nonlocal repeater_sensors_added
+            if repeater_sensors_added:
+                return
+            if coordinator.status.repeater is not None or any(
+                d.node == NODE_REPEATER for d in coordinator.data.values()
+            ):
+                repeater_sensors_added = True
+                async_add_entities(
+                    [
+                        RepeaterStatusSensor(
+                            coordinator,
+                            key="backhaul_band",
+                            translation_key="repeater_backhaul_band",
+                            value_fn=lambda c: (
+                                c.status.repeater.backhaul_band
+                                if c.status.repeater
+                                else None
+                            ),
+                        ),
+                        RepeaterStatusSensor(
+                            coordinator,
+                            key="upstream_bssid",
+                            translation_key="repeater_upstream_bssid",
+                            value_fn=lambda c: (
+                                c.status.repeater.upstream_bssid
+                                if c.status.repeater
+                                else None
+                            ),
+                            attributes_fn=lambda c: (
+                                {"agent_mac": c.status.repeater.agent_mac}
+                                if c.status.repeater and c.status.repeater.agent_mac
+                                else None
+                            ),
+                        ),
+                    ]
+                )
+
+        check_repeater_sensors()
+        entry.async_on_unload(coordinator.async_add_listener(check_repeater_sensors))
 
     signal_tracked: set[str] = set()
     ip_tracked: set[str] = set()
@@ -225,7 +345,7 @@ class RouterStatusSensor(
         self._attr_unique_id = f"{coordinator.config_entry.unique_id}_{description.key}"
 
     @property
-    def native_value(self) -> datetime | int | None:
+    def native_value(self) -> datetime | int | float | str | None:
         """Return the value from the latest router status."""
         return self.entity_description.value_fn(self.coordinator)
 
@@ -402,3 +522,48 @@ class ClientIpSensor(_ClientSensor):
         if device is None or device.ip in ("", "0.0.0.0"):
             return None
         return device.ip
+
+
+class RepeaterStatusSensor(
+    CoordinatorEntity[MovistarAskeyCoordinator],
+    SensorEntity,
+):
+    """Expose a sensor on the mesh repeater device."""
+
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(
+        self,
+        coordinator: MovistarAskeyCoordinator,
+        key: str,
+        translation_key: str,
+        value_fn: Callable[[MovistarAskeyCoordinator], str | None],
+        attributes_fn: (
+            Callable[[MovistarAskeyCoordinator], dict[str, Any] | None] | None
+        ) = None,
+    ) -> None:
+        """Initialize a repeater status sensor."""
+        super().__init__(coordinator)
+        self._key = key
+        self._attr_translation_key = translation_key
+        self._attr_unique_id = f"{coordinator.config_entry.unique_id}_repeater_{key}"
+        self._value_fn = value_fn
+        self._attributes_fn = attributes_fn
+
+    @property
+    def native_value(self) -> str | None:
+        """Return current sensor value."""
+        return self._value_fn(self.coordinator)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return attributes if configured."""
+        if self._attributes_fn:
+            return self._attributes_fn(self.coordinator)
+        return None
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Attach sensor to the repeater device."""
+        return repeater_device_info(self.coordinator.config_entry)

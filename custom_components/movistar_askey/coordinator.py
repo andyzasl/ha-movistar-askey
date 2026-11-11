@@ -115,6 +115,13 @@ class MovistarAskeyCoordinator(DataUpdateCoordinator[dict[str, RouterDevice]]):
         self._sync_client_devices(devices)
         return devices
 
+    @property
+    def is_ssh(self) -> bool:
+        """Return True if coordinator is using the SSH client."""
+        from .ssh import MovistarAskeySSHClient
+
+        return isinstance(self.client, MovistarAskeySSHClient)
+
     def client_device_info(self, mac: str) -> DeviceInfo:
         """Return device metadata for a network client."""
         device = (self.data or {}).get(mac)
