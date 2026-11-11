@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## 3.2.0
+
+- Add optional SSH polling method using the router's restricted CLI (`aspsh` / `Reduced_CLI_HGU_v28`) to eliminate router-side web server memory leaks.
+- Interactive SSH PTY terminal integration with persistent session reuse and automatic reconnection on dropped channels.
+- Parse `show map_info` for mesh topology (router vs repeater, 2.4 GHz vs 5 GHz bands), client signal RSSI, wired Ethernet devices, and DHCP hostnames.
+- Parse `show sys_info` for router uptime, CPU usage, and memory usage metrics.
+- Enforce strict read-only command allow-listing to guarantee sensitive router data and Wi-Fi credentials are never queried or exposed over SSH.
+- Add setup flow and options flow UI support for selecting between Web and SSH polling, with configurable SSH port, username, password, and private key file.
+- Redact SSH credentials and sanitize raw SSH output in Home Assistant diagnostics dumps.
+
 ## 3.1.1
 
 - Ensure device trackers are enabled by default on initial install and updates until the user customizes their selection in Configure options.
