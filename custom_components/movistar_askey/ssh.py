@@ -352,6 +352,7 @@ class MovistarAskeySSHClient:
                 ),
                 timeout=self._timeout,
             )
+            self._conn = conn
             process = await asyncio.wait_for(
                 conn.create_process(
                     term_type="vt100",
@@ -360,7 +361,6 @@ class MovistarAskeySSHClient:
                 ),
                 timeout=self._timeout,
             )
-            self._conn = conn
             self._process = process
             await self._async_read_prompt()
             self.stats["logins"] += 1
@@ -408,13 +408,26 @@ class MovistarAskeySSHClient:
         await self.async_get_devices()
 
     async def async_close(self) -> None:
-        """Close the active SSH process and connection."""
-        if self._process is not None:
-            with contextlib.suppress(Exception):
-                self._process.close()
-            self._process = None
+        """Close the active SSH process and connection cleanly."""
+        process = self._process
+        conn = self._conn
+        self._process = None
+        self._conn = None
 
-        if self._conn is not None:
+        if process is not None:
             with contextlib.suppress(Exception):
-                self._conn.close()
-            self._conn = None
+                process.close()
+                if hasattr(process, "wait_closed"):
+                    await asyncio.wait_for(process.wait_closed(), timeout=2.0)
+
+        if conn is not None:
+            try:
+                conn.close()
+                if hasattr(conn, "wait_closed"):
+                    await asyncio.wait_for(conn.wait_closed(), timeout=2.0)
+            except TimeoutError:
+                if hasattr(conn, "abort"):
+                    with contextlib.suppress(Exception):
+                        conn.abort()
+            except Exception:
+                pass

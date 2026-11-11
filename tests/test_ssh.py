@@ -162,21 +162,33 @@ class _FakeProcess:
     def __init__(self, responses: list[str]) -> None:
         self.stdout = _FakeSSHReader(responses)
         self.stdin = _FakeSSHWriter()
+        self.closed = False
+        self.waited_closed = False
 
     def close(self) -> None:
-        pass
+        self.closed = True
+
+    async def wait_closed(self) -> None:
+        self.waited_closed = True
 
 
 class _FakeConnection:
     def __init__(self, process: _FakeProcess) -> None:
         self._process = process
         self._closed = False
+        self.waited_closed = False
 
     def is_closed(self) -> bool:
         return self._closed
 
     def close(self) -> None:
         self._closed = True
+
+    def abort(self) -> None:
+        self._closed = True
+
+    async def wait_closed(self) -> None:
+        self.waited_closed = True
 
     async def create_process(self, **kwargs: object) -> _FakeProcess:
         return self._process
@@ -271,3 +283,24 @@ async def test_ssh_client_reconnects_after_session_drop() -> None:
             assert client.stats["logins"] == 2
         finally:
             await client.async_close()
+
+
+@pytest.mark.anyio
+async def test_ssh_client_async_close_cleans_resources() -> None:
+    """async_close cleanly closes both process and connection and awaits them."""
+    process = _FakeProcess([" > ", "show map_info\r\n\r\n > "])
+    conn = _FakeConnection(process)
+
+    with patch.object(asyncssh, "connect", AsyncMock(return_value=conn)):
+        client = MovistarAskeySSHClient("192.168.1.1", "secret")
+        await client.async_run_command("show map_info")
+        assert not conn.is_closed()
+        assert not process.closed
+
+        await client.async_close()
+        assert conn.is_closed()
+        assert conn.waited_closed
+        assert process.closed
+        assert process.waited_closed
+        assert client._conn is None
+        assert client._process is None
