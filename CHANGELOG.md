@@ -2,6 +2,19 @@
 
 All notable changes to this project are documented here.
 
+## 3.2.6
+
+- Add icons for devices across the integration:
+  - **Network Client Devices**: Device trackers now dynamically display connection-type and link-state icons:
+    - Wi-Fi clients: `mdi:wifi` when connected (home), `mdi:wifi-off` when disconnected (away).
+    - Ethernet clients: `mdi:lan-connect` when connected (home), `mdi:lan-disconnect` when disconnected (away).
+    - Replaces the default Home Assistant person silhouette (`mdi:account`) across device cards, entity rows, and dashboards.
+  - **Router & Mesh Repeater Devices**:
+    - Added device translation keys (`translation_key`) to router and mesh repeater device registry entries with English and Spanish localizations.
+    - Added `icons.json` icon mappings for `device_tracker` and `signal_strength` (`mdi:wifi`).
+    - Refined router reachability binary sensor icons: default `mdi:router-wireless`, off `mdi:router-wireless-off`.
+    - Refined mesh repeater link status binary sensor icons: default `mdi:access-point-network`, off `mdi:access-point-network-off`.
+
 ## 3.2.5
 
 - Add comprehensive router telemetry and service health metrics for SSH polling mode (strictly gated to SSH to avoid web polling overhead):

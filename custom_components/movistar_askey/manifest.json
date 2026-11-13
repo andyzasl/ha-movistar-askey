@@ -10,5 +10,5 @@
   "loggers": ["custom_components.movistar_askey", "asyncssh"],
   "requirements": ["asyncssh>=2.17.0"],
   "single_config_entry": true,
-  "version": "3.2.5"
+  "version": "3.2.6"
 }
