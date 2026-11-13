@@ -9,6 +9,7 @@ from custom_components.movistar_askey.const import DOMAIN
 from custom_components.movistar_askey.coordinator import MovistarAskeyCoordinator
 from custom_components.movistar_askey.device import (
     client_device_info,
+    repeater_device_info,
     repeater_identifier,
     router_device_info,
     router_identifier,
@@ -29,7 +30,18 @@ def test_router_identifier_prefers_config_entry_unique_id() -> None:
     )
 
     assert router_identifier(entry) == (DOMAIN, "192.168.1.1")
-    assert router_device_info(entry)["identifiers"] == {(DOMAIN, "192.168.1.1")}
+    info = router_device_info(entry)
+    assert info["identifiers"] == {(DOMAIN, "192.168.1.1")}
+    assert info["translation_key"] == "router"
+
+
+def test_repeater_device_info_metadata() -> None:
+    """Repeater device metadata includes identifiers, via_device and translation_key."""
+    entry = SimpleNamespace(unique_id="192.168.1.1", entry_id="entry-1")
+    info = repeater_device_info(entry)
+    assert info["identifiers"] == {repeater_identifier(entry)}
+    assert info["via_device"] == router_identifier(entry)
+    assert info["translation_key"] == "repeater"
 
 
 def test_client_device_info_uses_default_name_and_model() -> None:

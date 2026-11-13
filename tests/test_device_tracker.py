@@ -60,6 +60,7 @@ def test_device_tracker_entity_defaults() -> None:
     assert tracker.hostname == device.name
     assert tracker.ip_address == device.ip
     assert tracker.source_type == SourceType.ROUTER
+    assert tracker.translation_key == "device_tracker"
 
     # When tracked_devices is set and client is NOT in it, it starts disabled
     coord.config_entry.options = {"tracked_devices": ["OTHER_MAC"]}
@@ -117,6 +118,31 @@ def test_device_tracker_connection_states() -> None:
     )
     tracker_zero = MovistarAskeyDeviceTracker(coord_zero, device.mac)
     assert tracker_zero.is_connected is False
+
+
+def test_device_tracker_icons() -> None:
+    """Device tracker icons adapt to Wi-Fi vs Ethernet and connected state."""
+    # Wi-Fi client connected
+    wifi_device = _make_device(interface="WIFI")
+    coord_wifi = _make_coordinator(wifi_device, is_present=True)
+    tracker_wifi = MovistarAskeyDeviceTracker(coord_wifi, wifi_device.mac)
+    assert tracker_wifi.icon == "mdi:wifi"
+
+    # Wi-Fi client disconnected
+    coord_wifi_off = _make_coordinator(wifi_device, is_present=False, consider_home=0)
+    tracker_wifi_off = MovistarAskeyDeviceTracker(coord_wifi_off, wifi_device.mac)
+    assert tracker_wifi_off.icon == "mdi:wifi-off"
+
+    # Ethernet client connected
+    eth_device = _make_device(interface="ETH")
+    coord_eth = _make_coordinator(eth_device, is_present=True)
+    tracker_eth = MovistarAskeyDeviceTracker(coord_eth, eth_device.mac)
+    assert tracker_eth.icon == "mdi:lan-connect"
+
+    # Ethernet client disconnected
+    coord_eth_off = _make_coordinator(eth_device, is_present=False, consider_home=0)
+    tracker_eth_off = MovistarAskeyDeviceTracker(coord_eth_off, eth_device.mac)
+    assert tracker_eth_off.icon == "mdi:lan-disconnect"
 
 
 def test_device_tracker_attributes() -> None:

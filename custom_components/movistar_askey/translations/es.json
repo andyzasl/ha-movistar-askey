@@ -92,6 +92,14 @@
       }
     }
   },
+  "device": {
+    "router": {
+      "name": "Router Movistar Askey HGU"
+    },
+    "repeater": {
+      "name": "Repetidor mesh"
+    }
+  },
   "entity": {
     "binary_sensor": {
       "router_reachable": {

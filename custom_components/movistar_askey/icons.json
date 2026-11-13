@@ -2,9 +2,9 @@
   "entity": {
     "binary_sensor": {
       "router_reachable": {
-        "default": "mdi:router-network",
+        "default": "mdi:router-wireless",
         "state": {
-          "off": "mdi:router-network-wireless"
+          "off": "mdi:router-wireless-off"
         }
       },
       "internet_service": {
@@ -20,7 +20,18 @@
         "default": "mdi:phone-check"
       },
       "repeater_link_status": {
-        "default": "mdi:access-point-network"
+        "default": "mdi:access-point-network",
+        "state": {
+          "off": "mdi:access-point-network-off"
+        }
+      }
+    },
+    "device_tracker": {
+      "device_tracker": {
+        "default": "mdi:lan-disconnect",
+        "state": {
+          "home": "mdi:lan-connect"
+        }
       }
     },
     "event": {
@@ -55,6 +66,9 @@
       },
       "channel_5ghz": {
         "default": "mdi:access-point"
+      },
+      "signal_strength": {
+        "default": "mdi:wifi"
       },
       "ip_address": {
         "default": "mdi:ip-network"

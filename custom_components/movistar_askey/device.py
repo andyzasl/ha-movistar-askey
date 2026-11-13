@@ -49,6 +49,7 @@ def repeater_device_info(entry: ConfigEntry) -> DeviceInfo:
         name="Mesh repeater",
         model="EasyMesh agent",
         via_device=router_identifier(entry),
+        translation_key="repeater",
     )
 
 
@@ -64,6 +65,7 @@ def router_device_info(
         manufacturer=ROUTER_MANUFACTURER,
         model=ROUTER_MODEL,
         configuration_url=f"http://{entry.data['host']}",
+        translation_key="router",
     )
     if sw_version:
         info["sw_version"] = sw_version

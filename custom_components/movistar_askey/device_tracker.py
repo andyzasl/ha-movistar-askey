@@ -49,6 +49,7 @@ class MovistarAskeyDeviceTracker(
     _attr_has_entity_name = True
     _attr_name = None
     _attr_source_type = SourceType.ROUTER
+    _attr_translation_key = "device_tracker"
 
     def __init__(self, coordinator: MovistarAskeyCoordinator, mac: str) -> None:
         """Initialize one client tracker."""
@@ -56,6 +57,13 @@ class MovistarAskeyDeviceTracker(
         self._mac = mac
         self._attr_unique_id = mac
         self._cached_device = coordinator.data[mac]
+
+    @property
+    def icon(self) -> str:
+        """Return the device tracker icon based on connection type and state."""
+        if _CONNECTION_TYPES.get(self._cached_device.interface) == "wifi":
+            return "mdi:wifi" if self.is_connected else "mdi:wifi-off"
+        return "mdi:lan-connect" if self.is_connected else "mdi:lan-disconnect"
 
     @property
     def entity_registry_enabled_default(self) -> bool:
